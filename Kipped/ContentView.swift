@@ -8,6 +8,7 @@
 import SwiftUI
 import UIKit
 import QuartzCore
+import WebKit
 
 enum AppTheme: String, CaseIterable {
     case light = "light"
@@ -63,17 +64,10 @@ struct ContentView: View {
                     .padding(.horizontal, 16)
                     .padding(.top, 8)
                     
-                    if todoViewModel.todos.isEmpty {
-                        VStack(spacing: 20) {
-                            Image(systemName: "checklist")
-                                .font(.system(size: 60))
-                                .foregroundColor(.secondary)
-                            Text("Add a note")
-                                .font(.title2)
-                                .foregroundColor(.secondary)
-                        }
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-                        .offset(y: -60)
+                    if todoViewModel.activeTodos.isEmpty {
+                        EmptyStateView()
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                            .offset(y: -60)
                     } else {
                         ScrollViewReader { scrollProxy in
                             ScrollView {
@@ -585,6 +579,7 @@ struct AccentColorPickerOverlay: View {
                     LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: 6) {
                         ForEach(colors, id: \.1) { color, name in
                             Button(action: {
+                                UIImpactFeedbackGenerator(style: .soft).impactOccurred()
                                 accentColor = color
                                 onColorSelected(color)
                             }) {
@@ -634,6 +629,7 @@ struct AppIconSelectionOverlay: View {
                     LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3), spacing: 8) {
                         ForEach(AppIconOption.allCases, id: \.self) { option in
                             Button(action: {
+                                UIImpactFeedbackGenerator(style: .soft).impactOccurred()
                                 selectedAppIcon = option
                                 onIconSelected(option)
                             }) {
@@ -695,6 +691,7 @@ struct ThemePickerOverlay: View {
                     HStack(spacing: 12) {
                         ForEach(AppTheme.allCases, id: \.self) { theme in
                             Button(action: {
+                                UIImpactFeedbackGenerator(style: .soft).impactOccurred()
                                 appTheme = theme
                                 onThemeSelected(theme)
                             }) {
@@ -748,6 +745,68 @@ struct ThemePickerOverlay: View {
             }
         }
     }
+}
+
+struct EmptyStateView: View {
+    @State private var gifURL: URL?
+    
+    var body: some View {
+        VStack(spacing: 20) {
+            // Video/GIF illustration placeholder
+            ZStack {
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color.secondary.opacity(0.1))
+                    .frame(width: 120, height: 120)
+                
+                // Load GIF from Data Set in Assets
+                if let url = gifURL {
+                    WebView(url: url)
+                        .frame(width: 100, height: 100)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                } else {
+                    // Fallback to system icon
+                    Image(systemName: "checklist")
+                        .font(.system(size: 50))
+                        .foregroundColor(.secondary)
+                }
+            }
+            
+            Text("Add a note...")
+                .font(.title2)
+                .foregroundColor(.secondary)
+        }
+        .onAppear {
+            loadGIF()
+        }
+    }
+    
+    private func loadGIF() {
+        if let dataAsset = NSDataAsset(name: "LogoGif") {
+            let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("LogoGif.gif")
+            do {
+                try dataAsset.data.write(to: tempURL)
+                gifURL = tempURL
+            } catch {
+                print("Failed to write GIF to temp directory: \(error)")
+            }
+        }
+    }
+}
+
+// Simple WebView for displaying GIF files
+struct WebView: UIViewRepresentable {
+    let url: URL
+    
+    func makeUIView(context: Context) -> WKWebView {
+        let webView = WKWebView()
+        webView.backgroundColor = UIColor.clear
+        webView.isOpaque = false
+        webView.scrollView.isScrollEnabled = false
+        webView.load(URLRequest(url: url))
+        return webView
+    }
+    
+    func updateUIView(_ uiView: WKWebView, context: Context) {}
 }
 
 #Preview {
