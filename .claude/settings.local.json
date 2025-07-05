@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(xcodebuild:*)",
+      "Bash(swift:*)",
+      "Bash(grep:*)",
+      "Bash(find:*)",
+      "Bash(rm:*)",
+      "Bash(mkdir:*)",
+      "Bash(cp:*)",
+      "Bash(claude config get)",
+      "Bash(claude config list)",
+      "Bash(claude config set confirm_image_uploads false)",
+      "Bash(claude config set --global confirm_image_uploads false)",
+      "Bash(claude config list --global)",
+      "Bash(claude config --help)",
+      "WebFetch(domain:docs.anthropic.com)",
+      "Bash(claude config set --global autoAcceptFiles true)",
+      "Bash(claude config get:*)",
+      "Bash(claude config set --global supervisorMode true)",
+      "Bash(claude config set:*)",
+      "Bash(claude config add:*)",
+      "Bash(claude --version)"
+    ],
+    "deny": []
+  }
+}
