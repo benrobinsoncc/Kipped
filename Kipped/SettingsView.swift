@@ -10,6 +10,7 @@ enum AppIconOption: String, CaseIterable {
     case option5 = "AppIcon 5"
     case option6 = "AppIcon 6"
     case option7 = "AppIcon 7"
+    case option8 = "AppIcon 8"
     
     var displayName: String {
         switch self {
@@ -21,6 +22,7 @@ enum AppIconOption: String, CaseIterable {
         case .option5: return "Style 5"
         case .option6: return "Style 6"
         case .option7: return "Style 7"
+        case .option8: return "Style 8"
         }
     }
     
@@ -34,6 +36,7 @@ enum AppIconOption: String, CaseIterable {
         case .option5: return "app.badge.plus"
         case .option6: return "app.dashed"
         case .option7: return "app.gift"
+        case .option8: return "app.connected.to.line.below"
         }
     }
     
@@ -47,6 +50,7 @@ enum AppIconOption: String, CaseIterable {
         case .option5: return .red
         case .option6: return .blue
         case .option7: return .yellow
+        case .option8: return .teal
         }
     }
     
@@ -60,6 +64,7 @@ enum AppIconOption: String, CaseIterable {
         case .option5: return "AppIconPreview5"
         case .option6: return "AppIconPreview6"
         case .option7: return "AppIconPreview7"
+        case .option8: return "AppIconPreview8"
         }
     }
 }

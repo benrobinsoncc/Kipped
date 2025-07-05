@@ -10,8 +10,8 @@ import UIKit
 import QuartzCore
 
 enum AppTheme: String, CaseIterable {
-    case system = "system"
     case light = "light"
+    case system = "system"
     case dark = "dark"
     
     var displayName: String {
@@ -549,6 +549,7 @@ struct AccentColorPickerOverlay: View {
     @Binding var accentColor: Color
     let colors: [(Color, String)]
     let onColorSelected: (Color) -> Void
+    @Environment(\.colorScheme) var colorScheme
     
     func isColorSelected(_ color1: Color, _ color2: Color) -> Bool {
         // Convert to UIColor for comparison
@@ -581,7 +582,7 @@ struct AccentColorPickerOverlay: View {
                 
                 VStack(spacing: 20) {
                     
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: 12) {
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: 6) {
                         ForEach(colors, id: \.1) { color, name in
                             Button(action: {
                                 accentColor = color
@@ -589,7 +590,7 @@ struct AccentColorPickerOverlay: View {
                             }) {
                                 ZStack {
                                     Circle()
-                                        .stroke(Color.black, lineWidth: isColorSelected(accentColor, color) ? 2 : 0)
+                                        .stroke(colorScheme == .dark ? Color.white : Color.black, lineWidth: isColorSelected(accentColor, color) ? 2 : 0)
                                         .frame(width: 74, height: 74)
                                     Circle()
                                         .fill(color)
@@ -615,6 +616,7 @@ struct AppIconSelectionOverlay: View {
     @Binding var isPresented: Bool
     @Binding var selectedAppIcon: AppIconOption
     let onIconSelected: (AppIconOption) -> Void
+    @Environment(\.colorScheme) var colorScheme
     
     var body: some View {
         ZStack {
@@ -629,23 +631,23 @@ struct AppIconSelectionOverlay: View {
                 
                 VStack(spacing: 20) {
                     
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: 12) {
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3), spacing: 8) {
                         ForEach(AppIconOption.allCases, id: \.self) { option in
                             Button(action: {
                                 selectedAppIcon = option
                                 onIconSelected(option)
                             }) {
                                 ZStack {
-                                    RoundedRectangle(cornerRadius: 20)
-                                        .stroke(Color.black, lineWidth: selectedAppIcon == option ? 2 : 0)
-                                        .frame(width: 74, height: 74)
+                                    RoundedRectangle(cornerRadius: 24)
+                                        .stroke(colorScheme == .dark ? Color.white : Color.black, lineWidth: selectedAppIcon == option ? 2 : 0)
+                                        .frame(width: 98, height: 98)
                                     Image(option.imagePreviewName)
                                         .resizable()
                                         .aspectRatio(contentMode: .fit)
-                                        .frame(width: 64, height: 64)
-                                        .clipShape(RoundedRectangle(cornerRadius: 16))
+                                        .frame(width: 88, height: 88)
+                                        .clipShape(RoundedRectangle(cornerRadius: 20))
                                 }
-                                .frame(width: 74, height: 74)
+                                .frame(width: 98, height: 98)
                             }
                             .buttonStyle(PlainButtonStyle())
                         }
@@ -705,21 +707,31 @@ struct ThemePickerOverlay: View {
                                             Circle()
                                                 .fill(Color.white)
                                                 .frame(width: 64, height: 64)
-                                            HStack(spacing: 0) {
+                                            VStack(spacing: 0) {
                                                 Rectangle()
                                                     .fill(Color.white)
-                                                    .frame(width: 32, height: 64)
+                                                    .frame(width: 64, height: 32)
                                                 Rectangle()
                                                     .fill(Color.black)
-                                                    .frame(width: 32, height: 64)
+                                                    .frame(width: 64, height: 32)
                                             }
                                             .clipShape(Circle())
                                             .frame(width: 64, height: 64)
+                                            Circle()
+                                                .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+                                                .frame(width: 64, height: 64)
                                         }
                                     } else {
-                                        Circle()
-                                            .fill(themeColor(for: theme))
-                                            .frame(width: 64, height: 64)
+                                        ZStack {
+                                            Circle()
+                                                .fill(themeColor(for: theme))
+                                                .frame(width: 64, height: 64)
+                                            if theme == .light {
+                                                Circle()
+                                                    .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+                                                    .frame(width: 64, height: 64)
+                                            }
+                                        }
                                     }
                                 }
                                 .frame(width: 74, height: 74)
