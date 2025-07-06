@@ -58,6 +58,8 @@ struct ContentView: View {
                         Button(action: { showingSettings = true }) {
                             Image(systemName: "face.smiling")
                                 .font(.title)
+                                .symbolVariant(.none)
+                                .fontWeight(.ultraLight)
                         }
                         Spacer()
                     }
@@ -173,7 +175,9 @@ struct ContentView: View {
                         (Color(UIColor.systemTeal), "Teal"),
                         (Color(UIColor.systemYellow), "Yellow")
                     ],
-                    onColorSelected: { _ in }
+                    onColorSelected: { color in
+                        // Don't close automatically - let user tap outside to close
+                    }
                 )
                     .ignoresSafeArea(.all)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -550,8 +554,8 @@ struct AccentColorPickerOverlay: View {
         uiColor1.getRed(&r1, green: &g1, blue: &b1, alpha: &a1)
         uiColor2.getRed(&r2, green: &g2, blue: &b2, alpha: &a2)
         
-        // Compare with small tolerance for floating point comparison
-        let tolerance: CGFloat = 0.01
+        // Compare with larger tolerance for more reliable matching
+        let tolerance: CGFloat = 0.1
         return abs(r1 - r2) < tolerance && 
                abs(g1 - g2) < tolerance && 
                abs(b1 - b2) < tolerance
@@ -749,7 +753,7 @@ struct EmptyStateView: View {
             // Video/GIF illustration placeholder
             ZStack {
                 RoundedRectangle(cornerRadius: 12)
-                    .fill(Color.secondary.opacity(0.1))
+                    .fill(Color.clear)
                     .frame(width: 120, height: 120)
                 
                 // Load GIF from Data Set in Assets
@@ -765,7 +769,7 @@ struct EmptyStateView: View {
                 }
             }
             
-            Text("Add a note...")
+            Text("Add a note")
                 .font(.title2)
                 .foregroundColor(.secondary)
         }
