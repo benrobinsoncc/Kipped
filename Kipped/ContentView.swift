@@ -74,10 +74,12 @@ struct ContentView: View {
                     HStack {
                         Spacer()
                         Button(action: { showingSettings = true }) {
-                            Image(systemName: "face.smiling")
-                                .font(.title)
-                                .symbolVariant(.none)
-                                .fontWeight(.ultraLight)
+                            Image("AppLogoIcon")
+                                .renderingMode(.template)
+                                .resizable()
+                                .aspectRatio(contentMode: .fit)
+                                .frame(width: 22, height: 22)
+                                .foregroundColor(accentColor)
                         }
                         Spacer()
                     }
