@@ -8,11 +8,71 @@
 import SwiftUI
 import UserNotifications
 
+enum FontOption: String, CaseIterable {
+    case system = "system"
+    case rounded = "rounded"
+    case monospaced = "monospaced"
+    case serif = "serif"
+    case large = "large"
+    case bold = "bold"
+    
+    var displayName: String {
+        switch self {
+        case .system: return "System"
+        case .rounded: return "Rounded"
+        case .monospaced: return "Code"
+        case .serif: return "Serif"
+        case .large: return "Large"
+        case .bold: return "Bold"
+        }
+    }
+    
+    var font: Font {
+        switch self {
+        case .system: return .system(.body)
+        case .rounded: return .system(.body, design: .rounded)
+        case .monospaced: return .system(.body, design: .monospaced)
+        case .serif: return .system(.body, design: .serif)
+        case .large: return .system(.title3, weight: .medium)
+        case .bold: return .system(.body, weight: .heavy)
+        }
+    }
+    
+    var uiFont: UIFont {
+        switch self {
+        case .system: return UIFont.systemFont(ofSize: 17)
+        case .rounded: return UIFont.systemFont(ofSize: 17, weight: .regular)
+        case .monospaced: return UIFont.monospacedSystemFont(ofSize: 17, weight: .regular)
+        case .serif: return UIFont.systemFont(ofSize: 17)
+        case .large: return UIFont.systemFont(ofSize: 20, weight: .medium)
+        case .bold: return UIFont.systemFont(ofSize: 17, weight: .heavy)
+        }
+    }
+}
+
+class HapticsManager {
+    static let shared = HapticsManager()
+    
+    private init() {}
+    
+    func impact(_ style: UIImpactFeedbackGenerator.FeedbackStyle) {
+        guard KippedApp.loadHapticsEnabled() else { return }
+        UIImpactFeedbackGenerator(style: style).impactOccurred()
+    }
+    
+    func notification(_ type: UINotificationFeedbackGenerator.FeedbackType) {
+        guard KippedApp.loadHapticsEnabled() else { return }
+        UINotificationFeedbackGenerator().notificationOccurred(type)
+    }
+}
+
 @main
 struct KippedApp: App {
     @State private var appTheme: AppTheme = KippedApp.loadTheme()
     @State private var accentColor: Color = KippedApp.loadAccentColor()
     @State private var notificationsEnabled: Bool = true
+    @State private var hapticsEnabled: Bool = KippedApp.loadHapticsEnabled()
+    @State private var selectedFont: FontOption = KippedApp.loadFont()
 
     private var colorScheme: ColorScheme? {
         switch appTheme {
@@ -32,7 +92,7 @@ struct KippedApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView(appTheme: $appTheme, accentColor: $accentColor, notificationsEnabled: $notificationsEnabled)
+            ContentView(appTheme: $appTheme, accentColor: $accentColor, notificationsEnabled: $notificationsEnabled, hapticsEnabled: $hapticsEnabled, selectedFont: $selectedFont)
                 .preferredColorScheme(colorScheme)
                 .accentColor(accentColor)
                 .onChange(of: appTheme) { newTheme in
@@ -41,12 +101,20 @@ struct KippedApp: App {
                 .onChange(of: accentColor) { newColor in
                     KippedApp.saveAccentColor(newColor)
                 }
+                .onChange(of: hapticsEnabled) { newValue in
+                    KippedApp.saveHapticsEnabled(newValue)
+                }
+                .onChange(of: selectedFont) { newFont in
+                    KippedApp.saveFont(newFont)
+                }
         }
     }
 
     // MARK: - Persistence for Theme
     private static let themeKey = "app_theme"
     private static let accentColorKey = "accent_color"
+    private static let hapticsEnabledKey = "haptics_enabled"
+    private static let fontKey = "selected_font"
 
     static func saveTheme(_ theme: AppTheme) {
         UserDefaults.standard.set(theme.rawValue, forKey: themeKey)
@@ -67,10 +135,22 @@ struct KippedApp: App {
     }
 
     static func loadAccentColor() -> Color {
+        let systemColors = [
+            Color(UIColor.systemBlue),
+            Color(UIColor.systemRed),
+            Color(UIColor.systemGreen),
+            Color(UIColor.systemOrange),
+            Color(UIColor.systemPurple),
+            Color(UIColor.systemPink),
+            Color(UIColor.systemTeal),
+            Color(UIColor.systemYellow)
+        ]
+        
         if let data = UserDefaults.standard.data(forKey: accentColorKey), let uiColor = try? NSKeyedUnarchiver.unarchiveTopLevelObjectWithData(data) as? UIColor {
-            let color = Color(uiColor)
+            let loadedColor = Color(uiColor)
+            
             // Validate that the color isn't black (which indicates a conversion failure)
-            let testUIColor = UIColor(color)
+            let testUIColor = UIColor(loadedColor)
             var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, alpha: CGFloat = 0
             testUIColor.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
             
@@ -80,8 +160,52 @@ struct KippedApp: App {
                 return Color(UIColor.systemBlue)
             }
             
-            return color
+            // Find the closest matching system color
+            var closestColor = systemColors[0]
+            var smallestDistance = CGFloat.greatestFiniteMagnitude
+            
+            for systemColor in systemColors {
+                let systemUIColor = UIColor(systemColor)
+                var sysR: CGFloat = 0, sysG: CGFloat = 0, sysB: CGFloat = 0, sysA: CGFloat = 0
+                systemUIColor.getRed(&sysR, green: &sysG, blue: &sysB, alpha: &sysA)
+                
+                // Calculate color distance
+                let distance = sqrt(pow(red - sysR, 2) + pow(green - sysG, 2) + pow(blue - sysB, 2))
+                if distance < smallestDistance {
+                    smallestDistance = distance
+                    closestColor = systemColor
+                }
+            }
+            
+            // If very close to a system color, use the exact system color
+            if smallestDistance < 0.1 {
+                return closestColor
+            }
+            
+            return loadedColor
         }
         return Color(UIColor.systemBlue)
+    }
+    
+    static func saveHapticsEnabled(_ enabled: Bool) {
+        UserDefaults.standard.set(enabled, forKey: hapticsEnabledKey)
+    }
+    
+    static func loadHapticsEnabled() -> Bool {
+        if UserDefaults.standard.object(forKey: hapticsEnabledKey) != nil {
+            return UserDefaults.standard.bool(forKey: hapticsEnabledKey)
+        }
+        return true // Default to enabled
+    }
+    
+    static func saveFont(_ font: FontOption) {
+        UserDefaults.standard.set(font.rawValue, forKey: fontKey)
+    }
+    
+    static func loadFont() -> FontOption {
+        if let raw = UserDefaults.standard.string(forKey: fontKey), let font = FontOption(rawValue: raw) {
+            return font
+        }
+        return .system
     }
 }

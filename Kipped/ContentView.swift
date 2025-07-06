@@ -10,6 +10,21 @@ import UIKit
 import QuartzCore
 import WebKit
 
+struct AppFontModifier: ViewModifier {
+    let font: FontOption
+    
+    func body(content: Content) -> some View {
+        content
+            .font(font.font)
+    }
+}
+
+extension View {
+    func appFont(_ font: FontOption) -> some View {
+        self.modifier(AppFontModifier(font: font))
+    }
+}
+
 enum AppTheme: String, CaseIterable {
     case light = "light"
     case system = "system"
@@ -32,10 +47,13 @@ struct ContentView: View {
     @State private var showingAccentSheet = false
     @State private var showingAppIconSheet = false
     @State private var showingThemeSheet = false
+    @State private var showingFontSheet = false
     @AppStorage("selectedAppIcon") private var selectedAppIcon: AppIconOption = .default
     @Binding var appTheme: AppTheme
     @Binding var accentColor: Color
     @Binding var notificationsEnabled: Bool
+    @Binding var hapticsEnabled: Bool
+    @Binding var selectedFont: FontOption
     
     private var currentColorScheme: ColorScheme? {
         switch appTheme {
@@ -67,7 +85,7 @@ struct ContentView: View {
                     .padding(.top, 8)
                     
                     if todoViewModel.activeTodos.isEmpty {
-                        EmptyStateView()
+                        EmptyStateView(selectedFont: selectedFont)
                             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                             .offset(y: -60)
                     } else {
@@ -84,7 +102,8 @@ struct ContentView: View {
                                             },
                                             onArchive: {
                                                 todoViewModel.archiveTodo(todo)
-                                            }
+                                            },
+                                            selectedFont: selectedFont
                                         )
                                         .id(todo.id)
                                     }
@@ -118,7 +137,7 @@ struct ContentView: View {
             }
             .navigationBarTitleDisplayMode(.large)
             .sheet(isPresented: $showingAddTodo, onDismiss: { selectedTodo = nil }) {
-                AddTodoView(todoViewModel: todoViewModel, todoToEdit: selectedTodo, colorScheme: .constant(.dark), accentColor: $accentColor)
+                AddTodoView(todoViewModel: todoViewModel, todoToEdit: selectedTodo, colorScheme: .constant(.dark), accentColor: $accentColor, selectedFont: $selectedFont)
             }
             .presentationCornerRadius(60)
             .overlay(
@@ -130,12 +149,15 @@ struct ContentView: View {
                             appTheme: $appTheme,
                             accentColor: $accentColor,
                             notificationsEnabled: $notificationsEnabled,
+                            hapticsEnabled: $hapticsEnabled,
                             colorScheme: currentColorScheme,
                             todoViewModel: todoViewModel,
                             selectedAppIcon: $selectedAppIcon,
+                            selectedFont: $selectedFont,
                             onShowAccentSheet: { showingAccentSheet = true },
                             onShowAppIconSheet: { showingAppIconSheet = true },
-                            onShowThemeSheet: { showingThemeSheet = true }
+                            onShowThemeSheet: { showingThemeSheet = true },
+                            onShowFontSheet: { showingFontSheet = true }
                         )
                     },
                     onDismiss: {
@@ -148,6 +170,7 @@ struct ContentView: View {
                     showingAccentSheet = false
                     showingAppIconSheet = false
                     showingThemeSheet = false
+                    showingFontSheet = false
                 }
             }
             .onAppear {
@@ -220,6 +243,24 @@ struct ContentView: View {
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
             }
+            
+            if showingFontSheet {
+                ZStack {
+                    VisualEffectView(effect: UIBlurEffect(style: .light))
+                        .ignoresSafeArea(.all)
+                        .overlay(Color.clear)
+                        .transition(.opacity)
+                    FontPickerOverlay(
+                    isPresented: $showingFontSheet,
+                    selectedFont: $selectedFont,
+                    onFontSelected: { font in
+                        selectedFont = font
+                    }
+                )
+                    .ignoresSafeArea(.all)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+            }
         }
     }
     
@@ -244,8 +285,7 @@ struct ContentView: View {
         guard UIApplication.shared.supportsAlternateIcons else { 
             print("Alternate app icons are not supported on this device")
             // Still provide feedback even if not supported
-            let generator = UINotificationFeedbackGenerator()
-            generator.notificationOccurred(.warning)
+            HapticsManager.shared.notification(.warning)
             return 
         }
         
@@ -257,17 +297,14 @@ struct ContentView: View {
                 if let error = error {
                     print("Error changing app icon: \(error.localizedDescription)")
                     // Show error feedback
-                    let generator = UINotificationFeedbackGenerator()
-                    generator.notificationOccurred(.error)
+                    HapticsManager.shared.notification(.error)
                 } else {
                     print("App icon successfully changed to: \(icon.displayName)")
                     // Show success feedback
-                    let generator = UINotificationFeedbackGenerator()
-                    generator.notificationOccurred(.success)
+                    HapticsManager.shared.notification(.success)
                     
                     // Additional haptic feedback
-                    let impactGenerator = UIImpactFeedbackGenerator(style: .medium)
-                    impactGenerator.impactOccurred()
+                    HapticsManager.shared.impact(.medium)
                 }
             }
         }
@@ -284,6 +321,7 @@ struct TodoRowView: View {
     let todo: Todo
     @ObservedObject var todoViewModel: TodoViewModel
     let showCompletion: Bool
+    let selectedFont: FontOption
     
     var body: some View {
         HStack {
@@ -300,12 +338,14 @@ struct TodoRowView: View {
             
             VStack(alignment: .leading, spacing: 2) {
                 Text(todo.title)
+                    .appFont(selectedFont)
                     .strikethrough(todo.isCompleted)
                     .foregroundColor(todo.isCompleted ? .secondary : .primary)
                     .lineLimit(1)
                     .truncationMode(.tail)
                 if let reminder = todo.reminderDate {
                     Text(reminderString(from: reminder))
+                        .appFont(selectedFont)
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -355,10 +395,11 @@ struct TodoCardView: View {
     @ObservedObject var todoViewModel: TodoViewModel
     let onTap: () -> Void
     let onArchive: () -> Void
+    let selectedFont: FontOption
 
     var body: some View {
         Button(action: onTap) {
-            TodoRowView(todo: todo, todoViewModel: todoViewModel, showCompletion: false)
+            TodoRowView(todo: todo, todoViewModel: todoViewModel, showCompletion: false, selectedFont: selectedFont)
         .padding()
                 .background(Color(UIColor.secondarySystemBackground))
                 .cornerRadius(16)
@@ -366,13 +407,13 @@ struct TodoCardView: View {
         .buttonStyle(PlainButtonStyle())
         .contextMenu {
             Button(action: {
-                UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+                HapticsManager.shared.impact(.soft)
                 UIPasteboard.general.string = todo.title
             }) {
                 Label("Copy Text", systemImage: "doc.on.doc")
             }
             Button(role: .destructive, action: {
-                UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+                HapticsManager.shared.impact(.soft)
                 onArchive()
             }) {
                 Label("Archive", systemImage: "archivebox")
@@ -471,7 +512,7 @@ struct BottomSheet<Content: View>: View {
                             VStack(spacing: 0) {
                                 // Settings title
                                 Text("Settings")
-                                    .font(.title2)
+                                    .font(.headline)
                                     .fontWeight(.semibold)
                                     .padding(.top, 10)
                                     .padding(.bottom, 16)
@@ -536,6 +577,283 @@ struct RoundedCorner: Shape {
     }
 }
 
+struct SkeuomorphicColorButton: View {
+    let color: Color
+    let isSelected: Bool
+    let action: () -> Void
+    @State private var isPressed = false
+    
+    private var buttonSize: CGFloat { 64 }
+    
+    private var brightColor: Color {
+        let uiColor = UIColor(color)
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        uiColor.getRed(&r, green: &g, blue: &b, alpha: &a)
+        
+        return Color(
+            red: min(1.0, r + 0.3),
+            green: min(1.0, g + 0.3),
+            blue: min(1.0, b + 0.3)
+        )
+    }
+    
+    private var darkColor: Color {
+        let uiColor = UIColor(color)
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        uiColor.getRed(&r, green: &g, blue: &b, alpha: &a)
+        
+        return Color(
+            red: max(0.0, r - 0.4),
+            green: max(0.0, g - 0.4),
+            blue: max(0.0, b - 0.4)
+        )
+    }
+    
+    private var mainGradient: RadialGradient {
+        RadialGradient(
+            gradient: Gradient(stops: [
+                .init(color: brightColor.opacity(0.95), location: 0.0),
+                .init(color: color, location: 0.4),
+                .init(color: darkColor.opacity(0.8), location: 0.8),
+                .init(color: darkColor.opacity(0.9), location: 1.0)
+            ]),
+            center: UnitPoint(x: 0.3, y: 0.3),
+            startRadius: 0,
+            endRadius: buttonSize * 0.8
+        )
+    }
+    
+    var body: some View {
+        Button(action: {
+            HapticsManager.shared.impact(.soft)
+            action()
+        }) {
+            ZStack {
+                // Shadow
+                Circle()
+                    .fill(Color.black.opacity(0.1))
+                    .frame(width: buttonSize + 4, height: buttonSize + 4)
+                    .blur(radius: 2)
+                    .offset(x: 0, y: 2)
+                
+                // Main button
+                Circle()
+                    .fill(mainGradient)
+                    .frame(width: buttonSize, height: buttonSize)
+                    .overlay(
+                        Circle()
+                            .stroke(
+                                LinearGradient(
+                                    gradient: Gradient(stops: [
+                                        .init(color: Color.white.opacity(0.4), location: 0.0),
+                                        .init(color: Color.clear, location: 0.15),
+                                        .init(color: Color.clear, location: 0.85),
+                                        .init(color: Color.black.opacity(0.4), location: 1.0)
+                                    ]),
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: 3
+                            )
+                    )
+                    .overlay(
+                        // Inner rim
+                        Circle()
+                            .stroke(
+                                LinearGradient(
+                                    gradient: Gradient(stops: [
+                                        .init(color: Color.white.opacity(0.9), location: 0.0),
+                                        .init(color: Color.white.opacity(0.3), location: 0.3),
+                                        .init(color: Color.clear, location: 0.7),
+                                        .init(color: Color.black.opacity(0.5), location: 1.0)
+                                    ]),
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: 1.5
+                            )
+                            .frame(width: buttonSize - 4, height: buttonSize - 4)
+                    )
+                    .overlay(
+                        // Gloss overlay
+                        Circle()
+                            .fill(
+                                LinearGradient(
+                                    gradient: Gradient(stops: [
+                                        .init(color: Color.white.opacity(0.6), location: 0.0),
+                                        .init(color: Color.white.opacity(0.2), location: 0.3),
+                                        .init(color: Color.clear, location: 0.7),
+                                        .init(color: Color.clear, location: 1.0)
+                                    ]),
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .frame(width: buttonSize * 0.7, height: buttonSize * 0.7)
+                            .offset(x: -buttonSize * 0.1, y: -buttonSize * 0.1)
+                    )
+                    .shadow(color: .black.opacity(0.3), radius: 12, x: 0, y: 6)
+                    .shadow(color: color.opacity(0.3), radius: 8, x: 0, y: 4)
+                    .overlay(
+                        // Selection indicator
+                        Circle()
+                            .stroke(Color.white, lineWidth: isSelected ? 3 : 0)
+                            .frame(width: buttonSize + 6, height: buttonSize + 6)
+                            .shadow(color: .black.opacity(isSelected ? 0.3 : 0), radius: 2)
+                            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isSelected)
+                    )
+                    .scaleEffect(isPressed ? 0.92 : 1.0)
+                    .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isPressed)
+            }
+        }
+        .buttonStyle(PlainButtonStyle())
+        .onLongPressGesture(minimumDuration: 0, maximumDistance: .infinity, pressing: { pressing in
+            withAnimation(.easeInOut(duration: 0.12)) {
+                isPressed = pressing
+            }
+        }, perform: {})
+    }
+}
+
+struct SkeuomorphicThemeButton: View {
+    let theme: AppTheme
+    let isSelected: Bool
+    let action: () -> Void
+    @Environment(\.colorScheme) var colorScheme
+    @State private var isPressed = false
+    
+    private let buttonSize: CGFloat = 68
+    
+    private var themeColor: Color {
+        switch theme {
+        case .light:
+            return Color(red: 0.96, green: 0.96, blue: 0.98) // Light gray-blue
+        case .dark:
+            return Color.black // Pure black
+        case .system:
+            return Color(red: 0.5, green: 0.5, blue: 0.55) // Medium gray
+        }
+    }
+    
+    private var brightColor: Color {
+        let base = themeColor
+        let uiColor = UIColor(base)
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        uiColor.getRed(&r, green: &g, blue: &b, alpha: &a)
+        
+        return Color(
+            red: min(1.0, r + 0.3),
+            green: min(1.0, g + 0.3),
+            blue: min(1.0, b + 0.3)
+        )
+    }
+    
+    private var darkColor: Color {
+        let base = themeColor
+        let uiColor = UIColor(base)
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        uiColor.getRed(&r, green: &g, blue: &b, alpha: &a)
+        
+        return Color(
+            red: max(0.0, r - 0.4),
+            green: max(0.0, g - 0.4),
+            blue: max(0.0, b - 0.4)
+        )
+    }
+    
+    private var mainGradient: RadialGradient {
+        RadialGradient(
+            gradient: Gradient(stops: [
+                .init(color: brightColor.opacity(0.95), location: 0.0),
+                .init(color: themeColor, location: 0.4),
+                .init(color: darkColor.opacity(0.8), location: 0.8),
+                .init(color: darkColor.opacity(0.9), location: 1.0)
+            ]),
+            center: UnitPoint(x: 0.3, y: 0.3),
+            startRadius: 0,
+            endRadius: buttonSize * 0.8
+        )
+    }
+    
+    var body: some View {
+        Button(action: action) {
+            ZStack {
+                Circle()
+                    .fill(mainGradient)
+                    .frame(width: buttonSize, height: buttonSize)
+                    .overlay(
+                        Circle()
+                            .stroke(
+                                LinearGradient(
+                                    gradient: Gradient(stops: [
+                                        .init(color: Color.white.opacity(0.4), location: 0.0),
+                                        .init(color: Color.clear, location: 0.15),
+                                        .init(color: Color.clear, location: 0.85),
+                                        .init(color: Color.black.opacity(0.4), location: 1.0)
+                                    ]),
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: 3
+                            )
+                    )
+                    .overlay(
+                        Circle()
+                            .stroke(
+                                LinearGradient(
+                                    gradient: Gradient(stops: [
+                                        .init(color: Color.white.opacity(0.9), location: 0.0),
+                                        .init(color: Color.white.opacity(0.3), location: 0.3),
+                                        .init(color: Color.clear, location: 0.7),
+                                        .init(color: Color.black.opacity(0.5), location: 1.0)
+                                    ]),
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: 1.5
+                            )
+                            .frame(width: buttonSize - 4, height: buttonSize - 4)
+                    )
+                    .overlay(
+                        Circle()
+                            .fill(
+                                LinearGradient(
+                                    gradient: Gradient(stops: [
+                                        .init(color: Color.white.opacity(0.6), location: 0.0),
+                                        .init(color: Color.white.opacity(0.2), location: 0.3),
+                                        .init(color: Color.clear, location: 0.7),
+                                        .init(color: Color.clear, location: 1.0)
+                                    ]),
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .frame(width: buttonSize * 0.7, height: buttonSize * 0.7)
+                            .offset(x: -buttonSize * 0.1, y: -buttonSize * 0.1)
+                    )
+                    .shadow(color: .black.opacity(0.3), radius: 12, x: 0, y: 6)
+                    .shadow(color: themeColor.opacity(0.3), radius: 8, x: 0, y: 4)
+                    .overlay(
+                        // Selection indicator
+                        Circle()
+                            .stroke(Color.white, lineWidth: isSelected ? 3 : 0)
+                            .frame(width: buttonSize + 6, height: buttonSize + 6)
+                            .shadow(color: .black.opacity(isSelected ? 0.3 : 0), radius: 2)
+                            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isSelected)
+                    )
+                    .scaleEffect(isPressed ? 0.92 : 1.0)
+                    .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isPressed)
+            }
+        }
+        .buttonStyle(PlainButtonStyle())
+        .onLongPressGesture(minimumDuration: 0, maximumDistance: .infinity, pressing: { pressing in
+            withAnimation(.easeInOut(duration: 0.12)) {
+                isPressed = pressing
+            }
+        }, perform: {})
+    }
+}
+
 struct AccentColorPickerOverlay: View {
     @Binding var isPresented: Bool
     @Binding var accentColor: Color
@@ -554,11 +872,9 @@ struct AccentColorPickerOverlay: View {
         uiColor1.getRed(&r1, green: &g1, blue: &b1, alpha: &a1)
         uiColor2.getRed(&r2, green: &g2, blue: &b2, alpha: &a2)
         
-        // Compare with larger tolerance for more reliable matching
-        let tolerance: CGFloat = 0.1
-        return abs(r1 - r2) < tolerance && 
-               abs(g1 - g2) < tolerance && 
-               abs(b1 - b2) < tolerance
+        // Use Euclidean distance for more accurate color matching
+        let distance = sqrt(pow(r1 - r2, 2) + pow(g1 - g2, 2) + pow(b1 - b2, 2))
+        return distance < 0.1
     }
     
     var body: some View {
@@ -574,24 +890,16 @@ struct AccentColorPickerOverlay: View {
                 
                 VStack(spacing: 20) {
                     
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: 6) {
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: 12) {
                         ForEach(colors, id: \.1) { color, name in
-                            Button(action: {
-                                UIImpactFeedbackGenerator(style: .soft).impactOccurred()
-                                accentColor = color
-                                onColorSelected(color)
-                            }) {
-                                ZStack {
-                                    Circle()
-                                        .stroke(colorScheme == .dark ? Color.white : Color.black, lineWidth: isColorSelected(accentColor, color) ? 2 : 0)
-                                        .frame(width: 74, height: 74)
-                                    Circle()
-                                        .fill(color)
-                                        .frame(width: 64, height: 64)
+                            SkeuomorphicColorButton(
+                                color: color,
+                                isSelected: isColorSelected(accentColor, color),
+                                action: {
+                                    accentColor = color
+                                    onColorSelected(color)
                                 }
-                                .frame(width: 74, height: 74)
-                            }
-                            .buttonStyle(PlainButtonStyle())
+                            )
                         }
                     }
                     .padding(.horizontal, 20)
@@ -610,6 +918,7 @@ struct AppIconSelectionOverlay: View {
     @Binding var selectedAppIcon: AppIconOption
     let onIconSelected: (AppIconOption) -> Void
     @Environment(\.colorScheme) var colorScheme
+    @State private var pressedOption: AppIconOption? = nil
     
     var body: some View {
         ZStack {
@@ -624,26 +933,40 @@ struct AppIconSelectionOverlay: View {
                 
                 VStack(spacing: 20) {
                     
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3), spacing: 8) {
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3), spacing: 10) {
                         ForEach(AppIconOption.allCases, id: \.self) { option in
                             Button(action: {
-                                UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+                                HapticsManager.shared.impact(.soft)
                                 selectedAppIcon = option
                                 onIconSelected(option)
                             }) {
                                 ZStack {
-                                    RoundedRectangle(cornerRadius: 24)
-                                        .stroke(colorScheme == .dark ? Color.white : Color.black, lineWidth: selectedAppIcon == option ? 2 : 0)
-                                        .frame(width: 98, height: 98)
                                     Image(option.imagePreviewName)
                                         .resizable()
                                         .aspectRatio(contentMode: .fit)
                                         .frame(width: 88, height: 88)
                                         .clipShape(RoundedRectangle(cornerRadius: 20))
+                                        .shadow(color: .black.opacity(0.3), radius: 12, x: 0, y: 6)
+                                        .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
+                                        .overlay(
+                                            // Selection indicator
+                                            RoundedRectangle(cornerRadius: 23)
+                                                .stroke(Color.white, lineWidth: selectedAppIcon == option ? 3 : 0)
+                                                .frame(width: 94, height: 94)
+                                                .shadow(color: .black.opacity(selectedAppIcon == option ? 0.3 : 0), radius: 2)
+                                                .animation(.spring(response: 0.3, dampingFraction: 0.6), value: selectedAppIcon == option)
+                                        )
+                                        .scaleEffect(pressedOption == option ? 0.92 : 1.0)
+                                        .animation(.spring(response: 0.3, dampingFraction: 0.6), value: pressedOption == option)
                                 }
                                 .frame(width: 98, height: 98)
                             }
                             .buttonStyle(PlainButtonStyle())
+                            .onLongPressGesture(minimumDuration: 0, maximumDistance: .infinity, pressing: { pressing in
+                                withAnimation(.easeInOut(duration: 0.12)) {
+                                    pressedOption = pressing ? option : nil
+                                }
+                            }, perform: {})
                         }
                     }
                     .padding(.horizontal, 20)
@@ -686,52 +1009,17 @@ struct ThemePickerOverlay: View {
                 
                 VStack(spacing: 20) {
                     
-                    HStack(spacing: 12) {
+                    HStack(spacing: 20) {
                         ForEach(AppTheme.allCases, id: \.self) { theme in
-                            Button(action: {
-                                UIImpactFeedbackGenerator(style: .soft).impactOccurred()
-                                appTheme = theme
-                                onThemeSelected(theme)
-                            }) {
-                                ZStack {
-                                    Circle()
-                                        .stroke(appTheme == theme && theme == .dark ? Color.white : Color.black, lineWidth: appTheme == theme ? 2 : 0)
-                                        .frame(width: 74, height: 74)
-                                    if theme == .system {
-                                        ZStack {
-                                            Circle()
-                                                .fill(Color.white)
-                                                .frame(width: 64, height: 64)
-                                            VStack(spacing: 0) {
-                                                Rectangle()
-                                                    .fill(Color.white)
-                                                    .frame(width: 64, height: 32)
-                                                Rectangle()
-                                                    .fill(Color.black)
-                                                    .frame(width: 64, height: 32)
-                                            }
-                                            .clipShape(Circle())
-                                            .frame(width: 64, height: 64)
-                                            Circle()
-                                                .stroke(Color.gray.opacity(0.3), lineWidth: 1)
-                                                .frame(width: 64, height: 64)
-                                        }
-                                    } else {
-                                        ZStack {
-                                            Circle()
-                                                .fill(themeColor(for: theme))
-                                                .frame(width: 64, height: 64)
-                                            if theme == .light {
-                                                Circle()
-                                                    .stroke(Color.gray.opacity(0.3), lineWidth: 1)
-                                                    .frame(width: 64, height: 64)
-                                            }
-                                        }
-                                    }
+                            SkeuomorphicThemeButton(
+                                theme: theme,
+                                isSelected: appTheme == theme,
+                                action: {
+                                    HapticsManager.shared.impact(.soft)
+                                    appTheme = theme
+                                    onThemeSelected(theme)
                                 }
-                                .frame(width: 74, height: 74)
-                            }
-                            .buttonStyle(PlainButtonStyle())
+                            )
                         }
                     }
                     .padding(.horizontal, 40)
@@ -745,8 +1033,51 @@ struct ThemePickerOverlay: View {
     }
 }
 
+struct FontPickerOverlay: View {
+    @Binding var isPresented: Bool
+    @Binding var selectedFont: FontOption
+    let onFontSelected: (FontOption) -> Void
+    
+    var body: some View {
+        ZStack {
+            Color.clear
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    isPresented = false
+                }
+            
+            VStack(spacing: 0) {
+                Spacer()
+                
+                VStack(spacing: 20) {
+                    
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3), spacing: 20) {
+                        ForEach(FontOption.allCases, id: \.self) { font in
+                            SkeuomorphicFontButton(
+                                font: font,
+                                isSelected: selectedFont == font,
+                                action: {
+                                    HapticsManager.shared.impact(.soft)
+                                    selectedFont = font
+                                    onFontSelected(font)
+                                }
+                            )
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 40)
+                }
+                .background(Color.clear)
+                .padding(.horizontal, 20)
+                .padding(.bottom, 50)
+            }
+        }
+    }
+}
+
 struct EmptyStateView: View {
     @State private var gifURL: URL?
+    let selectedFont: FontOption
     
     var body: some View {
         VStack(spacing: 20) {
@@ -770,6 +1101,7 @@ struct EmptyStateView: View {
             }
             
             Text("Add a note")
+                .appFont(selectedFont)
                 .font(.title2)
                 .foregroundColor(.secondary)
         }
@@ -807,34 +1139,158 @@ struct WebView: UIViewRepresentable {
     func updateUIView(_ uiView: WKWebView, context: Context) {}
 }
 
+struct SkeuomorphicFontButton: View {
+    let font: FontOption
+    let isSelected: Bool
+    let action: () -> Void
+    @State private var isPressed = false
+    @Environment(\.colorScheme) var colorScheme
+    
+    private let buttonHeight: CGFloat = 56
+    private let buttonWidth: CGFloat = 90
+    
+    private var buttonGradient: RadialGradient {
+        if colorScheme == .dark {
+            return RadialGradient(
+                gradient: Gradient(stops: [
+                    .init(color: Color(red: 0.25, green: 0.25, blue: 0.27), location: 0.0),
+                    .init(color: Color(red: 0.20, green: 0.20, blue: 0.22), location: 0.4),
+                    .init(color: Color(red: 0.15, green: 0.15, blue: 0.17), location: 0.8),
+                    .init(color: Color(red: 0.10, green: 0.10, blue: 0.12), location: 1.0)
+                ]),
+                center: UnitPoint(x: 0.3, y: 0.3),
+                startRadius: 0,
+                endRadius: buttonWidth * 0.6
+            )
+        } else {
+            return RadialGradient(
+                gradient: Gradient(stops: [
+                    .init(color: Color(red: 0.96, green: 0.96, blue: 0.98), location: 0.0),
+                    .init(color: Color(red: 0.92, green: 0.92, blue: 0.94), location: 0.4),
+                    .init(color: Color(red: 0.88, green: 0.88, blue: 0.90), location: 0.8),
+                    .init(color: Color(red: 0.84, green: 0.84, blue: 0.86), location: 1.0)
+                ]),
+                center: UnitPoint(x: 0.3, y: 0.3),
+                startRadius: 0,
+                endRadius: buttonWidth * 0.6
+            )
+        }
+    }
+    
+    var body: some View {
+        Button(action: {
+            HapticsManager.shared.impact(.soft)
+            action()
+        }) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(buttonGradient)
+                    .frame(width: buttonWidth, height: buttonHeight)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(
+                                LinearGradient(
+                                    gradient: Gradient(stops: [
+                                        .init(color: Color.white.opacity(0.4), location: 0.0),
+                                        .init(color: Color.clear, location: 0.15),
+                                        .init(color: Color.clear, location: 0.85),
+                                        .init(color: Color.black.opacity(0.4), location: 1.0)
+                                    ]),
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: 3
+                            )
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(
+                                LinearGradient(
+                                    gradient: Gradient(stops: [
+                                        .init(color: Color.white.opacity(0.9), location: 0.0),
+                                        .init(color: Color.white.opacity(0.3), location: 0.3),
+                                        .init(color: Color.clear, location: 0.7),
+                                        .init(color: Color.black.opacity(0.5), location: 1.0)
+                                    ]),
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: 1.5
+                            )
+                            .frame(width: buttonWidth - 4, height: buttonHeight - 4)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(
+                                LinearGradient(
+                                    gradient: Gradient(stops: [
+                                        .init(color: Color.white.opacity(0.6), location: 0.0),
+                                        .init(color: Color.white.opacity(0.2), location: 0.3),
+                                        .init(color: Color.clear, location: 0.7),
+                                        .init(color: Color.clear, location: 1.0)
+                                    ]),
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .frame(width: buttonWidth * 0.7, height: buttonHeight * 0.7)
+                            .offset(x: -buttonWidth * 0.1, y: -buttonHeight * 0.1)
+                    )
+                    .shadow(color: .black.opacity(0.3), radius: 12, x: 0, y: 6)
+                    .shadow(color: Color.gray.opacity(0.3), radius: 8, x: 0, y: 4)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 19)
+                            .stroke(Color.white, lineWidth: isSelected ? 3 : 0)
+                            .frame(width: buttonWidth + 6, height: buttonHeight + 6)
+                            .shadow(color: .black.opacity(isSelected ? 0.3 : 0), radius: 2)
+                            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isSelected)
+                    )
+                    .scaleEffect(isPressed ? 0.95 : 1.0)
+                    .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isPressed)
+                
+                Text(font.displayName)
+                    .font(font.font)
+                    .foregroundColor(.primary)
+                    .fontWeight(.medium)
+            }
+        }
+        .buttonStyle(PlainButtonStyle())
+        .onLongPressGesture(minimumDuration: 0, maximumDistance: .infinity, pressing: { pressing in
+            withAnimation(.easeInOut(duration: 0.12)) {
+                isPressed = pressing
+            }
+        }, perform: {})
+    }
+}
+
 struct SkeuomorphicCreateButton: View {
     let accentColor: Color
     let action: () -> Void
-    @Environment(\.colorScheme) var colorScheme
     @State private var isPressed = false
-    @State private var isHovered = false
-    @State private var shimmerOffset: CGFloat = -1
     
-    private var buttonSize: CGFloat { 68 }
-    private var plusSize: CGFloat { 26 }
-    
-    private var baseColor: Color {
-        accentColor
-    }
+    private var buttonSize: CGFloat { 64 }
     
     private var brightColor: Color {
-        Color(
-            red: min(1.0, baseColor.cgColor?.components?[0] ?? 0 + 0.3),
-            green: min(1.0, baseColor.cgColor?.components?[1] ?? 0 + 0.3),
-            blue: min(1.0, baseColor.cgColor?.components?[2] ?? 0 + 0.3)
+        let uiColor = UIColor(accentColor)
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        uiColor.getRed(&r, green: &g, blue: &b, alpha: &a)
+        
+        return Color(
+            red: min(1.0, r + 0.3),
+            green: min(1.0, g + 0.3),
+            blue: min(1.0, b + 0.3)
         )
     }
     
     private var darkColor: Color {
-        Color(
-            red: max(0.0, baseColor.cgColor?.components?[0] ?? 0 - 0.4),
-            green: max(0.0, baseColor.cgColor?.components?[1] ?? 0 - 0.4),
-            blue: max(0.0, baseColor.cgColor?.components?[2] ?? 0 - 0.4)
+        let uiColor = UIColor(accentColor)
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        uiColor.getRed(&r, green: &g, blue: &b, alpha: &a)
+        
+        return Color(
+            red: max(0.0, r - 0.4),
+            green: max(0.0, g - 0.4),
+            blue: max(0.0, b - 0.4)
         )
     }
     
@@ -842,7 +1298,7 @@ struct SkeuomorphicCreateButton: View {
         RadialGradient(
             gradient: Gradient(stops: [
                 .init(color: brightColor.opacity(0.95), location: 0.0),
-                .init(color: baseColor, location: 0.4),
+                .init(color: accentColor, location: 0.4),
                 .init(color: darkColor.opacity(0.8), location: 0.8),
                 .init(color: darkColor.opacity(0.9), location: 1.0)
             ]),
@@ -852,128 +1308,87 @@ struct SkeuomorphicCreateButton: View {
         )
     }
     
-    private var bevelGradient: LinearGradient {
-        LinearGradient(
-            gradient: Gradient(stops: [
-                .init(color: Color.white.opacity(0.4), location: 0.0),
-                .init(color: Color.clear, location: 0.15),
-                .init(color: Color.clear, location: 0.85),
-                .init(color: Color.black.opacity(0.4), location: 1.0)
-            ]),
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
-    }
-    
-    private var innerRim: some View {
-        Circle()
-            .stroke(
-                LinearGradient(
-                    gradient: Gradient(stops: [
-                        .init(color: Color.white.opacity(0.9), location: 0.0),
-                        .init(color: Color.white.opacity(0.3), location: 0.3),
-                        .init(color: Color.clear, location: 0.7),
-                        .init(color: Color.black.opacity(0.5), location: 1.0)
-                    ]),
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                ),
-                lineWidth: 1.5
-            )
-            .frame(width: buttonSize - 4, height: buttonSize - 4)
-    }
-    
-    private var glossOverlay: some View {
-        Circle()
-            .fill(
-                LinearGradient(
-                    gradient: Gradient(stops: [
-                        .init(color: Color.white.opacity(0.6), location: 0.0),
-                        .init(color: Color.white.opacity(0.2), location: 0.3),
-                        .init(color: Color.clear, location: 0.7),
-                        .init(color: Color.clear, location: 1.0)
-                    ]),
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            )
-            .frame(width: buttonSize * 0.7, height: buttonSize * 0.7)
-            .offset(x: -buttonSize * 0.1, y: -buttonSize * 0.1)
-    }
-    
-    private var shimmerEffect: some View {
-        Circle()
-            .fill(
-                LinearGradient(
-                    gradient: Gradient(stops: [
-                        .init(color: Color.clear, location: 0.0),
-                        .init(color: Color.white.opacity(0.3), location: 0.5),
-                        .init(color: Color.clear, location: 1.0)
-                    ]),
-                    startPoint: .leading,
-                    endPoint: .trailing
-                )
-            )
-            .frame(width: buttonSize, height: buttonSize)
-            .offset(x: shimmerOffset * buttonSize * 2)
-            .mask(Circle().frame(width: buttonSize, height: buttonSize))
-    }
-    
-    private var enhancedPlusSymbol: some View {
-        ZStack {
-            Image(systemName: "plus")
-                .font(.system(size: plusSize, weight: .heavy, design: .default))
-                .foregroundColor(.black.opacity(0.3))
-                .offset(x: 0, y: 2)
-                .blur(radius: 1)
-            
-            Image(systemName: "plus")
-                .font(.system(size: plusSize, weight: .heavy, design: .default))
-                .foregroundColor(.white)
-                .shadow(color: .white.opacity(0.8), radius: 0.5, x: 0, y: -1)
-                .shadow(color: .black.opacity(0.4), radius: 2, x: 0, y: 1)
-                .overlay(
-                    Image(systemName: "plus")
-                        .font(.system(size: plusSize, weight: .heavy, design: .default))
-                        .foregroundColor(.white.opacity(0.9))
-                        .shadow(color: .white.opacity(0.9), radius: 1, x: 0, y: -0.5)
-                )
-        }
-    }
-    
     var body: some View {
         Button(action: {
-            UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
+            HapticsManager.shared.impact(.soft)
             action()
         }) {
             ZStack {
+                // Shadow
                 Circle()
                     .fill(Color.black.opacity(0.1))
                     .frame(width: buttonSize + 4, height: buttonSize + 4)
                     .blur(radius: 2)
                     .offset(x: 0, y: 2)
                 
+                // Main button
                 Circle()
                     .fill(mainGradient)
                     .frame(width: buttonSize, height: buttonSize)
                     .overlay(
                         Circle()
-                            .stroke(bevelGradient, lineWidth: 3)
-                            .frame(width: buttonSize, height: buttonSize)
+                            .stroke(
+                                LinearGradient(
+                                    gradient: Gradient(stops: [
+                                        .init(color: Color.white.opacity(0.4), location: 0.0),
+                                        .init(color: Color.clear, location: 0.15),
+                                        .init(color: Color.clear, location: 0.85),
+                                        .init(color: Color.black.opacity(0.4), location: 1.0)
+                                    ]),
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: 3
+                            )
                     )
-                    .overlay(innerRim)
-                    .overlay(glossOverlay)
-                    .overlay(shimmerEffect)
+                    .overlay(
+                        // Inner rim
+                        Circle()
+                            .stroke(
+                                LinearGradient(
+                                    gradient: Gradient(stops: [
+                                        .init(color: Color.white.opacity(0.9), location: 0.0),
+                                        .init(color: Color.white.opacity(0.3), location: 0.3),
+                                        .init(color: Color.clear, location: 0.7),
+                                        .init(color: Color.black.opacity(0.5), location: 1.0)
+                                    ]),
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: 1.5
+                            )
+                            .frame(width: buttonSize - 4, height: buttonSize - 4)
+                    )
+                    .overlay(
+                        // Gloss overlay
+                        Circle()
+                            .fill(
+                                LinearGradient(
+                                    gradient: Gradient(stops: [
+                                        .init(color: Color.white.opacity(0.6), location: 0.0),
+                                        .init(color: Color.white.opacity(0.2), location: 0.3),
+                                        .init(color: Color.clear, location: 0.7),
+                                        .init(color: Color.clear, location: 1.0)
+                                    ]),
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .frame(width: buttonSize * 0.7, height: buttonSize * 0.7)
+                            .offset(x: -buttonSize * 0.1, y: -buttonSize * 0.1)
+                    )
                     .shadow(color: .black.opacity(0.3), radius: 12, x: 0, y: 6)
-                    .shadow(color: .black.opacity(0.15), radius: 24, x: 0, y: 12)
-                    .shadow(color: baseColor.opacity(0.3), radius: 8, x: 0, y: 4)
-                    .scaleEffect(isPressed ? 0.92 : (isHovered ? 1.05 : 1.0))
+                    .shadow(color: accentColor.opacity(0.3), radius: 8, x: 0, y: 4)
+                    .scaleEffect(isPressed ? 0.92 : 1.0)
                     .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isPressed)
-                    .animation(.spring(response: 0.4, dampingFraction: 0.7), value: isHovered)
                 
-                enhancedPlusSymbol
+                // Plus icon
+                Image(systemName: "plus")
+                    .font(.title2)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.white)
                     .scaleEffect(isPressed ? 0.85 : 1.0)
-                    .animation(.spring(response: 0.2, dampingFraction: 0.8), value: isPressed)
+                    .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isPressed)
             }
         }
         .buttonStyle(PlainButtonStyle())
@@ -982,23 +1397,9 @@ struct SkeuomorphicCreateButton: View {
                 isPressed = pressing
             }
         }, perform: {})
-        .onHover { hovering in
-            withAnimation(.easeInOut(duration: 0.2)) {
-                isHovered = hovering
-            }
-        }
-        .onAppear {
-            startShimmerAnimation()
-        }
-    }
-    
-    private func startShimmerAnimation() {
-        withAnimation(.linear(duration: 3.0).repeatForever(autoreverses: false)) {
-            shimmerOffset = 1
-        }
     }
 }
 
 #Preview {
-    ContentView(appTheme: .constant(.dark), accentColor: .constant(.accentColor), notificationsEnabled: .constant(true))
+    ContentView(appTheme: .constant(.dark), accentColor: .constant(.accentColor), notificationsEnabled: .constant(true), hapticsEnabled: .constant(true), selectedFont: .constant(.system))
 }

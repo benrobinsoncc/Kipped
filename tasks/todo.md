@@ -1,70 +1,64 @@
-# Rename Project from DreamNotes to Kipped
+# Kipped UI Fixes
 
-## Problem
-Need to rename the entire iOS project from "DreamNotes" to "Kipped" including project files, app name, bundle identifiers, and all code references.
+## TODO List
 
-## Analysis
-Found 66 individual occurrences of "DreamNotes" across:
-- 8 Swift files (headers and class/struct names)
-- 1 Xcode project file (project.pbxproj with ~50 references)
-- 1 scheme management file
-- 4 directory names
-- 5 file names
-- 3 bundle identifiers
+### 1. Fix font selection options to support dark mode
+- [x] Update FontPickerOverlay to support dark mode
+- [x] Modify SkeuomorphicFontButton to respect color scheme
+- [x] Test both light and dark mode appearances
 
-## Todo Items
+### 2. Reduce gap between 3 rows in app icon selection picker
+- [x] Modify AppIconSelectionOverlay spacing
+- [x] Adjust LazyVGrid spacing from 20 to 12
+- [x] Test visual appearance
 
-### 1. Update Swift source files
-- [x] Update DreamNotesApp.swift - struct name and static method calls
-- [x] Update file headers in all Swift files (ContentView.swift, AddTodoView.swift, Todo.swift, TodoViewModel.swift)
-- [x] Update test files (DreamNotesTests.swift, DreamNotesUITests.swift, DreamNotesUITestsLaunchTests.swift)
+### 3. Reduce gap between 2 rows in app color accent selection picker
+- [x] Modify AccentColorPickerOverlay spacing
+- [x] Adjust LazyVGrid spacing from 16 to 12
+- [x] Test visual appearance
 
-### 2. Update Xcode project configuration
-- [x] Update project.pbxproj file (~50 references)
-- [x] Update bundle identifiers (com.ben.DreamNotes → com.ben.Kipped)
-- [x] Update scheme management plist
+### 4. Make black selection option more black (less blue) in theme picker
+- [x] Update SkeuomorphicThemeButton themeColor for .dark case
+- [x] Change from `Color(red: 0.03, green: 0.03, blue: 0.03)` to pure black
+- [x] Test visual appearance
 
-### 3. Update documentation
-- [x] Update CLAUDE.md project documentation
+### 5. Make bold text in font picker actually bold/super bold
+- [x] Update FontOption.bold font weight
+- [x] Change from `.bold` to `.heavy`
+- [x] Test visual appearance in font picker
 
-### 4. Rename files and directories
-- [ ] Rename DreamNotesApp.swift → KippedApp.swift
-- [ ] Rename DreamNotes.entitlements → Kipped.entitlements
-- [ ] Rename test files
-- [ ] Rename main app folder
-- [ ] Rename project folder
-- [ ] Rename test folders
-
-## Implementation Notes
-- Keep changes systematic and simple
-- Update code references first, then rename files/folders
-- Test after each major change to ensure project still builds
-- Bundle identifiers: com.ben.DreamNotes → com.ben.Kipped
+## Notes
+- All changes should be minimal and focused
+- Test each fix individually
+- Maintain existing visual consistency
+- Ensure changes work in both light and dark modes
 
 ## Review Section
 
 ### Changes Made
 
-#### 1. Updated Swift Source Files
-- **DreamNotesApp.swift**: Changed struct name from `DreamNotesApp` to `KippedApp` and updated all static method calls
-- **File headers**: Updated copyright headers from "DreamNotes" to "Kipped" in:
-  - ContentView.swift
-  - AddTodoView.swift
-  - Todo.swift
-  - TodoViewModel.swift
-- **Test files**: Updated class names and import statements:
-  - DreamNotesTests.swift → KippedTests struct, @testable import Kipped
-  - DreamNotesUITests.swift → KippedUITests class
-  - DreamNotesUITestsLaunchTests.swift → KippedUITestsLaunchTests class
+#### 1. Font Selection Dark Mode Support (ContentView.swift:1144-1180)
+- Added `@Environment(\.colorScheme) var colorScheme` to `SkeuomorphicFontButton`
+- Created `buttonGradient` computed property that provides different gradients for light/dark mode
+- Dark mode uses darker gray tones (0.25 to 0.10 range) instead of light grays
+- Light mode maintains original appearance
 
-#### 2. Updated Xcode Project Configuration
-- **project.pbxproj**: Replaced all 50+ references to "DreamNotes" with "Kipped"
-  - Product names, bundle identifiers, target names
-  - Bundle identifiers changed: com.ben.DreamNotes → com.ben.Kipped
-- **xcschememanagement.plist**: Updated scheme references
+#### 2. App Icon Selection Spacing (ContentView.swift:938)
+- Reduced `LazyVGrid` spacing in `AppIconSelectionOverlay` from 20 to 12
+- Creates tighter visual grouping of app icon options
 
-#### 3. Updated Documentation
-- **CLAUDE.md**: Updated project title and description from "DreamNotes" to "Kipped"
+#### 3. Accent Color Selection Spacing (ContentView.swift:895)
+- Reduced `LazyVGrid` spacing in `AccentColorPickerOverlay` from 16 to 12
+- Creates more compact layout for color selection
+
+#### 4. Black Theme Color Fix (ContentView.swift:732)
+- Changed dark theme color from `Color(red: 0.03, green: 0.03, blue: 0.03)` to `Color.black`
+- Eliminates blue tint in dark theme selection button
+
+#### 5. Bold Font Weight Enhancement (KippedApp.swift:37,48)
+- Updated `FontOption.bold` from `.bold` to `.heavy` weight
+- Applied to both `font` and `uiFont` properties for consistency
+- Makes bold text significantly more prominent in font picker
 
 ### Result
-Successfully renamed the iOS project from "DreamNotes" to "Kipped" with all code references, bundle identifiers, and project configuration updated. The project should now build and run under the new name.
+All 5 UI issues have been fixed with minimal, focused changes that maintain the app's existing visual design while improving usability and appearance.
