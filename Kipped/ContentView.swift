@@ -104,19 +104,13 @@ struct ContentView: View {
                 
         VStack {
                     Spacer()
-                    Button(action: {
-                        selectedTodo = nil
-                        showingAddTodo = true
-                    }) {
-                        Image(systemName: "plus")
-                            .font(.title2)
-                            .fontWeight(.semibold)
-                            .foregroundColor(.white)
-                            .frame(width: 60, height: 60)
-                            .background(Color.accentColor)
-                            .clipShape(Circle())
-                            .shadow(color: .black.opacity(0.2), radius: 8, x: 0, y: 4)
-                    }
+                    SkeuomorphicCreateButton(
+                        accentColor: accentColor,
+                        action: {
+                            selectedTodo = nil
+                            showingAddTodo = true
+                        }
+                    )
                     .padding(.bottom, 20)
                 }
             }
@@ -807,6 +801,198 @@ struct WebView: UIViewRepresentable {
     }
     
     func updateUIView(_ uiView: WKWebView, context: Context) {}
+}
+
+struct SkeuomorphicCreateButton: View {
+    let accentColor: Color
+    let action: () -> Void
+    @Environment(\.colorScheme) var colorScheme
+    @State private var isPressed = false
+    @State private var isHovered = false
+    @State private var shimmerOffset: CGFloat = -1
+    
+    private var buttonSize: CGFloat { 68 }
+    private var plusSize: CGFloat { 26 }
+    
+    private var baseColor: Color {
+        accentColor
+    }
+    
+    private var brightColor: Color {
+        Color(
+            red: min(1.0, baseColor.cgColor?.components?[0] ?? 0 + 0.3),
+            green: min(1.0, baseColor.cgColor?.components?[1] ?? 0 + 0.3),
+            blue: min(1.0, baseColor.cgColor?.components?[2] ?? 0 + 0.3)
+        )
+    }
+    
+    private var darkColor: Color {
+        Color(
+            red: max(0.0, baseColor.cgColor?.components?[0] ?? 0 - 0.4),
+            green: max(0.0, baseColor.cgColor?.components?[1] ?? 0 - 0.4),
+            blue: max(0.0, baseColor.cgColor?.components?[2] ?? 0 - 0.4)
+        )
+    }
+    
+    private var mainGradient: RadialGradient {
+        RadialGradient(
+            gradient: Gradient(stops: [
+                .init(color: brightColor.opacity(0.95), location: 0.0),
+                .init(color: baseColor, location: 0.4),
+                .init(color: darkColor.opacity(0.8), location: 0.8),
+                .init(color: darkColor.opacity(0.9), location: 1.0)
+            ]),
+            center: UnitPoint(x: 0.3, y: 0.3),
+            startRadius: 0,
+            endRadius: buttonSize * 0.8
+        )
+    }
+    
+    private var bevelGradient: LinearGradient {
+        LinearGradient(
+            gradient: Gradient(stops: [
+                .init(color: Color.white.opacity(0.4), location: 0.0),
+                .init(color: Color.clear, location: 0.15),
+                .init(color: Color.clear, location: 0.85),
+                .init(color: Color.black.opacity(0.4), location: 1.0)
+            ]),
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+    
+    private var innerRim: some View {
+        Circle()
+            .stroke(
+                LinearGradient(
+                    gradient: Gradient(stops: [
+                        .init(color: Color.white.opacity(0.9), location: 0.0),
+                        .init(color: Color.white.opacity(0.3), location: 0.3),
+                        .init(color: Color.clear, location: 0.7),
+                        .init(color: Color.black.opacity(0.5), location: 1.0)
+                    ]),
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                ),
+                lineWidth: 1.5
+            )
+            .frame(width: buttonSize - 4, height: buttonSize - 4)
+    }
+    
+    private var glossOverlay: some View {
+        Circle()
+            .fill(
+                LinearGradient(
+                    gradient: Gradient(stops: [
+                        .init(color: Color.white.opacity(0.6), location: 0.0),
+                        .init(color: Color.white.opacity(0.2), location: 0.3),
+                        .init(color: Color.clear, location: 0.7),
+                        .init(color: Color.clear, location: 1.0)
+                    ]),
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+            .frame(width: buttonSize * 0.7, height: buttonSize * 0.7)
+            .offset(x: -buttonSize * 0.1, y: -buttonSize * 0.1)
+    }
+    
+    private var shimmerEffect: some View {
+        Circle()
+            .fill(
+                LinearGradient(
+                    gradient: Gradient(stops: [
+                        .init(color: Color.clear, location: 0.0),
+                        .init(color: Color.white.opacity(0.3), location: 0.5),
+                        .init(color: Color.clear, location: 1.0)
+                    ]),
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+            )
+            .frame(width: buttonSize, height: buttonSize)
+            .offset(x: shimmerOffset * buttonSize * 2)
+            .mask(Circle().frame(width: buttonSize, height: buttonSize))
+    }
+    
+    private var enhancedPlusSymbol: some View {
+        ZStack {
+            Image(systemName: "plus")
+                .font(.system(size: plusSize, weight: .heavy, design: .default))
+                .foregroundColor(.black.opacity(0.3))
+                .offset(x: 0, y: 2)
+                .blur(radius: 1)
+            
+            Image(systemName: "plus")
+                .font(.system(size: plusSize, weight: .heavy, design: .default))
+                .foregroundColor(.white)
+                .shadow(color: .white.opacity(0.8), radius: 0.5, x: 0, y: -1)
+                .shadow(color: .black.opacity(0.4), radius: 2, x: 0, y: 1)
+                .overlay(
+                    Image(systemName: "plus")
+                        .font(.system(size: plusSize, weight: .heavy, design: .default))
+                        .foregroundColor(.white.opacity(0.9))
+                        .shadow(color: .white.opacity(0.9), radius: 1, x: 0, y: -0.5)
+                )
+        }
+    }
+    
+    var body: some View {
+        Button(action: {
+            UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
+            action()
+        }) {
+            ZStack {
+                Circle()
+                    .fill(Color.black.opacity(0.1))
+                    .frame(width: buttonSize + 4, height: buttonSize + 4)
+                    .blur(radius: 2)
+                    .offset(x: 0, y: 2)
+                
+                Circle()
+                    .fill(mainGradient)
+                    .frame(width: buttonSize, height: buttonSize)
+                    .overlay(
+                        Circle()
+                            .stroke(bevelGradient, lineWidth: 3)
+                            .frame(width: buttonSize, height: buttonSize)
+                    )
+                    .overlay(innerRim)
+                    .overlay(glossOverlay)
+                    .overlay(shimmerEffect)
+                    .shadow(color: .black.opacity(0.3), radius: 12, x: 0, y: 6)
+                    .shadow(color: .black.opacity(0.15), radius: 24, x: 0, y: 12)
+                    .shadow(color: baseColor.opacity(0.3), radius: 8, x: 0, y: 4)
+                    .scaleEffect(isPressed ? 0.92 : (isHovered ? 1.05 : 1.0))
+                    .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isPressed)
+                    .animation(.spring(response: 0.4, dampingFraction: 0.7), value: isHovered)
+                
+                enhancedPlusSymbol
+                    .scaleEffect(isPressed ? 0.85 : 1.0)
+                    .animation(.spring(response: 0.2, dampingFraction: 0.8), value: isPressed)
+            }
+        }
+        .buttonStyle(PlainButtonStyle())
+        .onLongPressGesture(minimumDuration: 0, maximumDistance: .infinity, pressing: { pressing in
+            withAnimation(.easeInOut(duration: 0.12)) {
+                isPressed = pressing
+            }
+        }, perform: {})
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.2)) {
+                isHovered = hovering
+            }
+        }
+        .onAppear {
+            startShimmerAnimation()
+        }
+    }
+    
+    private func startShimmerAnimation() {
+        withAnimation(.linear(duration: 3.0).repeatForever(autoreverses: false)) {
+            shimmerOffset = 1
+        }
+    }
 }
 
 #Preview {
