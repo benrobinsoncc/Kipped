@@ -44,10 +44,6 @@ struct ContentView: View {
     @State private var showingAddTodo = false
     @State private var selectedTodo: Todo? = nil
     @State private var showingSettings = false
-    @State private var showingAccentSheet = false
-    @State private var showingAppIconSheet = false
-    @State private var showingThemeSheet = false
-    @State private var showingFontSheet = false
     @AppStorage("selectedAppIcon") private var selectedAppIcon: AppIconOption = .default
     @Binding var appTheme: AppTheme
     @Binding var accentColor: Color
@@ -169,133 +165,24 @@ struct ContentView: View {
                 AddTodoView(todoViewModel: todoViewModel, todoToEdit: selectedTodo, colorScheme: .constant(.dark), accentColor: $accentColor, selectedFont: $selectedFont)
             }
             .presentationCornerRadius(60)
-            .overlay(
-                // Bottom sheet for settings only
-                BottomSheet(
-                    isPresented: showingSettings,
-                    content: {
-                        SettingsView(
-                            appTheme: $appTheme,
-                            accentColor: $accentColor,
-                            notificationsEnabled: $notificationsEnabled,
-                            hapticsEnabled: $hapticsEnabled,
-                            colorScheme: currentColorScheme,
-                            todoViewModel: todoViewModel,
-                            selectedAppIcon: $selectedAppIcon,
-                            selectedFont: $selectedFont,
-                            tintedBackgrounds: $tintedBackgrounds,
-                            onShowAccentSheet: { showingAccentSheet = true },
-                            onShowAppIconSheet: { showingAppIconSheet = true },
-                            onShowThemeSheet: { showingThemeSheet = true },
-                            onShowFontSheet: { showingFontSheet = true }
-                        )
-                    },
-                    onDismiss: {
-                        withAnimation { showingSettings = false }
-                    },
-                    accentColor: accentColor,
-                    tintedBackgrounds: tintedBackgrounds,
-                    currentColorScheme: currentColorScheme
+            .sheet(isPresented: $showingSettings) {
+                SettingsView(
+                    appTheme: $appTheme,
+                    accentColor: $accentColor,
+                    notificationsEnabled: $notificationsEnabled,
+                    hapticsEnabled: $hapticsEnabled,
+                    colorScheme: currentColorScheme,
+                    todoViewModel: todoViewModel,
+                    selectedAppIcon: $selectedAppIcon,
+                    selectedFont: $selectedFont,
+                    tintedBackgrounds: $tintedBackgrounds
                 )
-            )
-            .onChange(of: showingSettings) { newValue in
-                if !newValue {
-                    showingAccentSheet = false
-                    showingAppIconSheet = false
-                    showingThemeSheet = false
-                    showingFontSheet = false
-                }
             }
             .onAppear {
                 syncAppIconOnLaunch()
             }
             }
             
-            // Overlays at root level to cover everything including toolbar
-            if showingAccentSheet {
-                ZStack {
-                    VisualEffectView(effect: UIBlurEffect(style: .light))
-                        .ignoresSafeArea(.all)
-                        .overlay(Color.clear)
-                        .transition(.opacity)
-                    AccentColorPickerOverlay(
-                    isPresented: $showingAccentSheet,
-                    accentColor: $accentColor,
-                    colors: [
-                        (Color(UIColor.systemBlue), "Blue"),
-                        (Color(UIColor.systemRed), "Red"),
-                        (Color(UIColor.systemGreen), "Green"),
-                        (Color(UIColor.systemOrange), "Orange"),
-                        (Color(UIColor.systemPurple), "Purple"),
-                        (Color(UIColor.systemPink), "Pink"),
-                        (Color(UIColor.systemTeal), "Teal"),
-                        (Color(UIColor.systemYellow), "Yellow")
-                    ],
-                    onColorSelected: { color in
-                        // Don't close automatically - let user tap outside to close
-                    },
-                    tintedBackgrounds: tintedBackgrounds,
-                    currentColorScheme: currentColorScheme
-                )
-                    .ignoresSafeArea(.all)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-                }
-            }
-            
-            if showingAppIconSheet {
-                ZStack {
-                    VisualEffectView(effect: UIBlurEffect(style: .light))
-                        .ignoresSafeArea(.all)
-                        .overlay(Color.clear)
-                        .transition(.opacity)
-                    AppIconSelectionOverlay(
-                    isPresented: $showingAppIconSheet,
-                    selectedAppIcon: $selectedAppIcon,
-                    onIconSelected: { icon in
-                        selectedAppIcon = icon
-                        changeAppIcon(to: icon)
-                    }
-                )
-                    .ignoresSafeArea(.all)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-                }
-            }
-            
-            if showingThemeSheet {
-                ZStack {
-                    VisualEffectView(effect: UIBlurEffect(style: .light))
-                        .ignoresSafeArea(.all)
-                        .overlay(Color.clear)
-                        .transition(.opacity)
-                    ThemePickerOverlay(
-                    isPresented: $showingThemeSheet,
-                    appTheme: $appTheme,
-                    onThemeSelected: { theme in
-                        appTheme = theme
-                    }
-                )
-                    .ignoresSafeArea(.all)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-                }
-            }
-            
-            if showingFontSheet {
-                ZStack {
-                    VisualEffectView(effect: UIBlurEffect(style: .light))
-                        .ignoresSafeArea(.all)
-                        .overlay(Color.clear)
-                        .transition(.opacity)
-                    FontPickerOverlay(
-                    isPresented: $showingFontSheet,
-                    selectedFont: $selectedFont,
-                    onFontSelected: { font in
-                        selectedFont = font
-                    }
-                )
-                    .ignoresSafeArea(.all)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-                }
-            }
             
         }
     }
@@ -1476,51 +1363,38 @@ struct AccentColorPickerOverlay: View {
     
     var body: some View {
         ZStack {
-            Color.black.opacity(0.3)
-                .ignoresSafeArea()
+            Color.clear
+                .contentShape(Rectangle())
                 .onTapGesture {
                     isPresented = false
                 }
             
-            VStack {
+            VStack(spacing: 0) {
                 Spacer()
                 
-                ScrollView {
-                    VStack(spacing: 25) {
-                        ForEach(MaterialColorCategory.allCategories, id: \.name) { category in
-                            VStack(alignment: .leading, spacing: 12) {
-                                Text(category.name.uppercased())
-                                    .font(.caption2)
-                                    .fontWeight(.semibold)
-                                    .foregroundColor(.secondary)
-                                    .padding(.horizontal, 20)
-                                
-                                LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: 10) {
-                                    ForEach(category.colors, id: \.name) { colorInfo in
-                                        MaterialColorButton(
-                                            colorInfo: colorInfo,
-                                            isSelected: isColorSelected(accentColor, colorInfo.color),
-                                            action: {
-                                                accentColor = colorInfo.color
-                                                onColorSelected(colorInfo.color)
-                                            }
-                                        )
-                                    }
+                VStack(spacing: 20) {
+                    
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: 6) {
+                        ForEach(MaterialColorCategory.allCategories.first?.colors ?? [], id: \.name) { colorInfo in
+                            MaterialColorButton(
+                                colorInfo: colorInfo,
+                                isSelected: isColorSelected(accentColor, colorInfo.color),
+                                action: {
+                                    HapticsManager.shared.impact(.soft)
+                                    accentColor = colorInfo.color
+                                    onColorSelected(colorInfo.color)
+                                    // Don't dismiss - let user continue selecting
                                 }
-                                .padding(.horizontal, 20)
-                            }
+                            )
+                            .frame(width: 75, height: 75)
                         }
                     }
-                    .padding(.vertical, 30)
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 40)
                 }
-                .frame(maxHeight: UIScreen.main.bounds.height * 0.6)
-                .background(
-                    RoundedRectangle(cornerRadius: 20)
-                        .fill(Color.tintedSecondaryBackground(accentColor: accentColor, isEnabled: tintedBackgrounds, colorScheme: currentColorScheme))
-                )
-                .padding(.horizontal, 16)
-                .padding(.bottom, 20)
-                .scrollIndicators(.hidden)
+                .background(Color.clear)
+                .padding(.horizontal, 20)
+                .padding(.bottom, 50)
             }
         }
     }

@@ -115,51 +115,22 @@ struct MaterialColorCategory {
 extension MaterialColorCategory {
     static let allCategories = [
         MaterialColorCategory(
-            name: "System",
+            name: "Colors",
             colors: [
+                // Row 1: First 4 system colors
                 MaterialColorInfo(name: "Blue", color: Color(UIColor.systemBlue), type: .solid),
                 MaterialColorInfo(name: "Red", color: Color(UIColor.systemRed), type: .solid),
                 MaterialColorInfo(name: "Green", color: Color(UIColor.systemGreen), type: .solid),
                 MaterialColorInfo(name: "Orange", color: Color(UIColor.systemOrange), type: .solid),
+                // Row 2: Last 4 system colors
                 MaterialColorInfo(name: "Purple", color: Color(UIColor.systemPurple), type: .solid),
                 MaterialColorInfo(name: "Pink", color: Color(UIColor.systemPink), type: .solid),
                 MaterialColorInfo(name: "Teal", color: Color(UIColor.systemTeal), type: .solid),
-                MaterialColorInfo(name: "Yellow", color: Color(UIColor.systemYellow), type: .solid)
-            ]
-        ),
-        MaterialColorCategory(
-            name: "Classic",
-            colors: [
+                MaterialColorInfo(name: "Yellow", color: Color(UIColor.systemYellow), type: .solid),
+                // Row 3: Classic 1st & 4th, Metal 3rd, Luminous 4th
                 MaterialColorInfo(name: "Rose Gold", color: Color.materialRoseGold, type: .metallic),
-                MaterialColorInfo(name: "Slate", color: Color.materialSlate, type: .stone),
-                MaterialColorInfo(name: "Sapphire", color: Color.materialSapphire, type: .gemstone),
-                MaterialColorInfo(name: "Amethyst", color: Color.materialAmethyst, type: .gemstone)
-            ]
-        ),
-        MaterialColorCategory(
-            name: "Metals",
-            colors: [
-                MaterialColorInfo(name: "Brushed Steel", color: Color.materialBrushedSteel, type: .brushedMetal),
-                MaterialColorInfo(name: "Patina Bronze", color: Color.materialPatinaBronze, type: .patinaMetal),
+                MaterialColorInfo(name: "Amethyst", color: Color.materialAmethyst, type: .gemstone),
                 MaterialColorInfo(name: "Carbon Fiber", color: Color.materialCarbonFiber, type: .carbonFiber),
-                MaterialColorInfo(name: "Anodized Titanium", color: Color.materialAnodizedTitanium, type: .anodized)
-            ]
-        ),
-        MaterialColorCategory(
-            name: "Textiles",
-            colors: [
-                MaterialColorInfo(name: "Distressed Leather", color: Color.materialDistressedLeather, type: .leather),
-                MaterialColorInfo(name: "Worn Denim", color: Color.materialWornDenim, type: .fabric),
-                MaterialColorInfo(name: "Velvet", color: Color.materialVelvet, type: .velvet),
-                MaterialColorInfo(name: "Canvas", color: Color.materialCanvas, type: .canvas)
-            ]
-        ),
-        MaterialColorCategory(
-            name: "Luminous",
-            colors: [
-                MaterialColorInfo(name: "Prismatic", color: Color.materialPrismatic, type: .prismatic),
-                MaterialColorInfo(name: "Opalescent", color: Color.materialOpalescent, type: .opalescent),
-                MaterialColorInfo(name: "Holographic", color: Color.materialHolographic, type: .holographic),
                 MaterialColorInfo(name: "Iridescent", color: Color.materialIridescent, type: .iridescent)
             ]
         )

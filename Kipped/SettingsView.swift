@@ -81,10 +81,10 @@ struct SettingsView: View {
     @Binding var selectedFont: FontOption
     @Binding var tintedBackgrounds: Bool
     @State private var selectedArchivedTodo: Todo? = nil
-    var onShowAccentSheet: (() -> Void)? = nil
-    var onShowAppIconSheet: (() -> Void)? = nil
-    var onShowThemeSheet: (() -> Void)? = nil
-    var onShowFontSheet: (() -> Void)? = nil
+    @State private var showingThemeSheet = false
+    @State private var showingAccentSheet = false
+    @State private var showingAppIconSheet = false
+    @State private var showingFontSheet = false
     
     let accentColors: [(Color, String)] = MaterialColorCategory.allColors.map { ($0.color, $0.name) }
     
@@ -97,25 +97,16 @@ struct SettingsView: View {
     }
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // CUSTOMIZE Section
-            VStack(alignment: .leading, spacing: 0) {
-                Text("CUSTOMIZE")
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
-                    .padding(.horizontal, 16)
-                    .padding(.top, 20)
-                    .padding(.bottom, 8)
-                
-                VStack(spacing: 0) {
-                    // Theme Row
+        NavigationView {
+            List {
+                Section("Customize") {
                     Button(action: {
                         HapticsManager.shared.impact(.soft)
-                        onShowThemeSheet?()
+                        showingThemeSheet = true
                     }) {
                         HStack {
                             Image(systemName: "paintbrush")
-                                .foregroundColor(.primary)
+                                .foregroundColor(colorScheme == .dark ? .white : .black)
                             Text("Theme")
                                 .appFont(selectedFont)
                                 .foregroundColor(.primary)
@@ -124,22 +115,15 @@ struct SettingsView: View {
                                 .foregroundColor(.secondary)
                                 .font(.caption)
                         }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 12)
-                        .background(tintedSecondaryBackground)
-                        .contentShape(Rectangle())
                     }
-                    .buttonStyle(PlainButtonStyle())
                     
-                    // Accent Color Row
-                    Button(action: { 
+                    Button(action: {
                         HapticsManager.shared.impact(.soft)
-                        onShowAccentSheet?()
+                        showingAccentSheet = true
                     }) {
                         HStack {
                             Image(systemName: "paintpalette")
-                                .foregroundColor(accentColor)
-                                .materialStyle(accentColor: accentColor)
+                                .foregroundColor(colorScheme == .dark ? .white : .black)
                             Text("Accent Color")
                                 .appFont(selectedFont)
                                 .foregroundColor(.primary)
@@ -148,21 +132,15 @@ struct SettingsView: View {
                                 .foregroundColor(.secondary)
                                 .font(.caption)
                         }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 12)
-                        .background(tintedSecondaryBackground)
-                        .contentShape(Rectangle())
                     }
-                    .buttonStyle(PlainButtonStyle())
                     
-                    // App Icon Row
-                    Button(action: { 
+                    Button(action: {
                         HapticsManager.shared.impact(.soft)
-                        onShowAppIconSheet?()
+                        showingAppIconSheet = true
                     }) {
                         HStack {
                             Image(systemName: "app.badge")
-                                .foregroundColor(.primary)
+                                .foregroundColor(colorScheme == .dark ? .white : .black)
                             Text("App Icon")
                                 .appFont(selectedFont)
                                 .foregroundColor(.primary)
@@ -171,21 +149,15 @@ struct SettingsView: View {
                                 .foregroundColor(.secondary)
                                 .font(.caption)
                         }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 12)
-                        .background(tintedSecondaryBackground)
-                        .contentShape(Rectangle())
                     }
-                    .buttonStyle(PlainButtonStyle())
                     
-                    // Font Row
-                    Button(action: { 
+                    Button(action: {
                         HapticsManager.shared.impact(.soft)
-                        onShowFontSheet?()
+                        showingFontSheet = true
                     }) {
                         HStack {
                             Image(systemName: "textformat")
-                                .foregroundColor(.primary)
+                                .foregroundColor(colorScheme == .dark ? .white : .black)
                             Text("Font")
                                 .appFont(selectedFont)
                                 .foregroundColor(.primary)
@@ -194,27 +166,10 @@ struct SettingsView: View {
                                 .foregroundColor(.secondary)
                                 .font(.caption)
                         }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 12)
-                        .background(tintedSecondaryBackground)
-                        .contentShape(Rectangle())
                     }
-                    .buttonStyle(PlainButtonStyle())
-                    
                 }
-                .cornerRadius(10)
-            }
-            
-            // NOTIFICATIONS & FEEDBACK Section
-            VStack(alignment: .leading, spacing: 0) {
-                Text("CONFIGURE")
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
-                    .padding(.horizontal, 16)
-                    .padding(.top, 20)
-                    .padding(.bottom, 8)
                 
-                VStack(spacing: 0) {
+                Section("Configure") {
                     HStack {
                         Text("Notifications")
                             .appFont(selectedFont)
@@ -222,12 +177,6 @@ struct SettingsView: View {
                         Spacer()
                         SkeuomorphicToggle(isOn: $notificationsEnabled, accentColor: accentColor, onToggle: handleNotificationsToggle)
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
-                    .background(Color(UIColor.secondarySystemBackground))
-                    
-                    Divider()
-                        .padding(.horizontal, 16)
                     
                     HStack {
                         Text("Haptics")
@@ -236,12 +185,6 @@ struct SettingsView: View {
                         Spacer()
                         SkeuomorphicToggle(isOn: $hapticsEnabled, accentColor: accentColor, isHapticsToggle: true)
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
-                    .background(Color(UIColor.secondarySystemBackground))
-                    
-                    Divider()
-                        .padding(.horizontal, 16)
                     
                     HStack {
                         Text("Tinted Backgrounds")
@@ -250,49 +193,21 @@ struct SettingsView: View {
                         Spacer()
                         SkeuomorphicToggle(isOn: $tintedBackgrounds, accentColor: accentColor)
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
-                    .background(Color(UIColor.secondarySystemBackground))
                 }
-                .cornerRadius(10)
-            }
-            
-            // ARCHIVED TODOS Section
-            VStack(alignment: .leading, spacing: 0) {
-                Text("ARCHIVED TODOS")
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
-                    .padding(.horizontal, 16)
-                    .padding(.top, 20)
-                    .padding(.bottom, 8)
                 
-                VStack(spacing: 0) {
+                Section("Archived Todos") {
                     if todoViewModel.archivedTodos.isEmpty {
-                        HStack {
-                            Text("No archived todos yet")
-                                .appFont(selectedFont)
-                                .foregroundColor(.secondary)
-                            Spacer()
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 12)
-                        .background(tintedSecondaryBackground)
+                        Text("No archived todos yet")
+                            .appFont(selectedFont)
+                            .foregroundColor(.secondary)
                     } else {
                         ForEach(todoViewModel.archivedTodos) { todo in
                             Button(action: { selectedArchivedTodo = todo }) {
-                                HStack {
-                                    Text(todo.title)
-                                        .appFont(selectedFont)
-                                        .foregroundColor(.primary)
-                                        .lineLimit(1)
-                                    Spacer()
-                                }
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 12)
-                                .background(Color(UIColor.secondarySystemBackground))
-                                .contentShape(Rectangle())
+                                Text(todo.title)
+                                    .appFont(selectedFont)
+                                    .foregroundColor(.primary)
+                                    .lineLimit(1)
                             }
-                            .buttonStyle(PlainButtonStyle())
                             .contextMenu {
                                 Button(action: {
                                     HapticsManager.shared.impact(.soft)
@@ -304,10 +219,104 @@ struct SettingsView: View {
                         }
                     }
                 }
-                .cornerRadius(10)
             }
+            .navigationTitle("Settings")
+            .navigationBarTitleDisplayMode(.inline)
         }
-        .padding(.top, 20)
+        .overlay(
+            Group {
+                if showingThemeSheet {
+                    ZStack {
+                        Color.black.opacity(0.3)
+                            .ignoresSafeArea()
+                            .onTapGesture {
+                                showingThemeSheet = false
+                            }
+                        
+                        ThemePickerOverlay(
+                            isPresented: $showingThemeSheet,
+                            appTheme: $appTheme,
+                            onThemeSelected: { theme in
+                                appTheme = theme
+                            }
+                        )
+                        .scaleEffect(0.9)
+                        .padding(.horizontal, 20)
+                    }
+                    .transition(.opacity)
+                }
+                
+                if showingAccentSheet {
+                    ZStack {
+                        Color.black.opacity(0.3)
+                            .ignoresSafeArea()
+                            .onTapGesture {
+                                showingAccentSheet = false
+                            }
+                        
+                        AccentColorPickerOverlay(
+                            isPresented: $showingAccentSheet,
+                            accentColor: $accentColor,
+                            colors: accentColors,
+                            onColorSelected: { color in
+                                accentColor = color
+                            },
+                            tintedBackgrounds: tintedBackgrounds,
+                            currentColorScheme: colorScheme
+                        )
+                        .scaleEffect(0.9)
+                        .padding(.horizontal, 20)
+                    }
+                    .transition(.opacity)
+                }
+                
+                if showingAppIconSheet {
+                    ZStack {
+                        Color.black.opacity(0.3)
+                            .ignoresSafeArea()
+                            .onTapGesture {
+                                showingAppIconSheet = false
+                            }
+                        
+                        AppIconSelectionOverlay(
+                            isPresented: $showingAppIconSheet,
+                            selectedAppIcon: $selectedAppIcon,
+                            onIconSelected: { icon in
+                                selectedAppIcon = icon
+                            }
+                        )
+                        .scaleEffect(0.9)
+                        .padding(.horizontal, 20)
+                    }
+                    .transition(.opacity)
+                }
+                
+                if showingFontSheet {
+                    ZStack {
+                        Color.black.opacity(0.3)
+                            .ignoresSafeArea()
+                            .onTapGesture {
+                                showingFontSheet = false
+                            }
+                        
+                        FontPickerOverlay(
+                            isPresented: $showingFontSheet,
+                            selectedFont: $selectedFont,
+                            onFontSelected: { font in
+                                selectedFont = font
+                            }
+                        )
+                        .scaleEffect(0.9)
+                        .padding(.horizontal, 20)
+                    }
+                    .transition(.opacity)
+                }
+            }
+            .animation(.easeInOut(duration: 0.2), value: showingThemeSheet)
+            .animation(.easeInOut(duration: 0.2), value: showingAccentSheet)
+            .animation(.easeInOut(duration: 0.2), value: showingAppIconSheet)
+            .animation(.easeInOut(duration: 0.2), value: showingFontSheet)
+        )
         .sheet(item: $selectedArchivedTodo) { todo in
             AddTodoView(todoViewModel: todoViewModel, todoToEdit: todo, colorScheme: .constant(colorScheme ?? .dark), accentColor: $accentColor, selectedFont: $selectedFont, isArchivedMode: true) {
                 todoViewModel.unarchiveTodo(todo)
