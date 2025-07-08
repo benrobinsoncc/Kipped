@@ -84,14 +84,14 @@ struct ContentView: View {
                     .fill(
                         RadialGradient(
                             gradient: Gradient(colors: [
-                                Color.purple.opacity(currentColorScheme == .dark ? 0.25 : 0.15),
-                                Color.purple.opacity(currentColorScheme == .dark ? 0.18 : 0.11),
-                                Color.purple.opacity(currentColorScheme == .dark ? 0.12 : 0.08),
-                                Color.purple.opacity(currentColorScheme == .dark ? 0.08 : 0.05),
-                                Color.purple.opacity(currentColorScheme == .dark ? 0.05 : 0.03),
-                                Color.purple.opacity(currentColorScheme == .dark ? 0.03 : 0.02),
-                                Color.purple.opacity(currentColorScheme == .dark ? 0.02 : 0.01),
-                                Color.purple.opacity(currentColorScheme == .dark ? 0.01 : 0.005),
+                                accentColor.opacity(currentColorScheme == .dark ? 0.18 : 0.12),
+                                accentColor.opacity(currentColorScheme == .dark ? 0.14 : 0.09),
+                                accentColor.opacity(currentColorScheme == .dark ? 0.10 : 0.06),
+                                accentColor.opacity(currentColorScheme == .dark ? 0.06 : 0.04),
+                                accentColor.opacity(currentColorScheme == .dark ? 0.04 : 0.025),
+                                accentColor.opacity(currentColorScheme == .dark ? 0.025 : 0.015),
+                                accentColor.opacity(currentColorScheme == .dark ? 0.015 : 0.008),
+                                accentColor.opacity(currentColorScheme == .dark ? 0.008 : 0.004),
                                 Color.clear
                             ]),
                             center: .center,

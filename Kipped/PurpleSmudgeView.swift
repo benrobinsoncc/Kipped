@@ -16,6 +16,7 @@ struct SmudgeParticle: Identifiable {
 
 // MARK: - PurpleSmudgeView
 struct PurpleSmudgeView: View {
+    let accentColor: Color
     @State private var smudgeParticles: [SmudgeParticle] = []
     @State private var dragPosition: CGPoint?
     @State private var lastDragPosition: CGPoint?
@@ -39,7 +40,7 @@ struct PurpleSmudgeView: View {
             
             // Render smudge particles
             ForEach(smudgeParticles) { particle in
-                SmudgeParticleView(particle: particle)
+                SmudgeParticleView(particle: particle, accentColor: accentColor)
                     .position(particle.position)
             }
         }
@@ -125,11 +126,12 @@ struct PurpleSmudgeView: View {
 // MARK: - SmudgeParticleView
 struct SmudgeParticleView: View {
     let particle: SmudgeParticle
+    let accentColor: Color
     
     var body: some View {
         // Simple solid circle for testing
         Circle()
-            .fill(Color.purple)
+            .fill(accentColor)
             .frame(width: 50, height: 50)
             .opacity(particle.opacity)
             .scaleEffect(particle.scale)
@@ -142,7 +144,7 @@ struct PurpleSmudgeView_Previews: PreviewProvider {
     static var previews: some View {
         ZStack {
             Color.black.ignoresSafeArea()
-            PurpleSmudgeView()
+            PurpleSmudgeView(accentColor: .purple)
         }
     }
 }
