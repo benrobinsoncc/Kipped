@@ -44,6 +44,9 @@ struct ContentView: View {
     @State private var showingAddTodo = false
     @State private var selectedTodo: Todo? = nil
     @State private var showingSettings = false
+    @State private var smudgeParticles: [SmudgeParticle] = []
+    @State private var isDragging = false
+    @State private var lastDragPosition: CGPoint?
     @AppStorage("selectedAppIcon") private var selectedAppIcon: AppIconOption = .default
     @Binding var appTheme: AppTheme
     @Binding var accentColor: Color
@@ -71,21 +74,39 @@ struct ContentView: View {
     
     var body: some View {
         ZStack {
-            NavigationStack {
-            ZStack {
-                // Simple tinted background
-                tintedBackground
-                    .ignoresSafeArea()
-                
-                // Subtle particles
-                ForEach(0..<4) { index in
-                    ParticleView(
-                        type: .bubble,
-                        delay: Double.random(in: 0...10),
-                        screenIndex: index
+            // Simple tinted background
+            tintedBackground
+                .ignoresSafeArea()
+            
+            // Render smudge particles - subtle effect for both light and dark modes
+            ForEach(smudgeParticles) { particle in
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            gradient: Gradient(colors: [
+                                Color.purple.opacity(currentColorScheme == .dark ? 0.25 : 0.15),
+                                Color.purple.opacity(currentColorScheme == .dark ? 0.18 : 0.11),
+                                Color.purple.opacity(currentColorScheme == .dark ? 0.12 : 0.08),
+                                Color.purple.opacity(currentColorScheme == .dark ? 0.08 : 0.05),
+                                Color.purple.opacity(currentColorScheme == .dark ? 0.05 : 0.03),
+                                Color.purple.opacity(currentColorScheme == .dark ? 0.03 : 0.02),
+                                Color.purple.opacity(currentColorScheme == .dark ? 0.02 : 0.01),
+                                Color.purple.opacity(currentColorScheme == .dark ? 0.01 : 0.005),
+                                Color.clear
+                            ]),
+                            center: .center,
+                            startRadius: 0,
+                            endRadius: 90
+                        )
                     )
-                }
-                
+                    .frame(width: 160, height: 160)
+                    .position(particle.position)
+                    .opacity(particle.opacity)
+                    .blendMode(currentColorScheme == .dark ? .screen : .multiply)
+                    .zIndex(999)
+            }
+            
+            NavigationStack {
                 VStack {
                     HStack {
                         Spacer()
@@ -135,9 +156,6 @@ struct ContentView: View {
                                 // Add extra space at the bottom so the last card isn't covered by the create button
                                 Spacer().frame(height: 120).id("bottomSpacer")
                             }
-                            .refreshable {
-                                await performFunRefresh()
-                            }
                             .onChange(of: todoViewModel.activeTodos.count) { _ in
                                 withAnimation {
                                     scrollProxy.scrollTo("bottomSpacer", anchor: .bottom)
@@ -148,7 +166,7 @@ struct ContentView: View {
                     }
                 }
                 
-        VStack {
+                VStack {
                     Spacer()
                     SkeuomorphicCreateButton(
                         accentColor: accentColor,
@@ -181,9 +199,68 @@ struct ContentView: View {
             .onAppear {
                 syncAppIconOnLaunch()
             }
+        }
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { value in
+                    handleDragChanged(value)
+                }
+                .onEnded { _ in
+                    handleDragEnded()
+                }
+        )
+    }
+    
+    private func handleDragChanged(_ value: DragGesture.Value) {
+        let currentPosition = value.location
+        
+        if !isDragging {
+            // Start of drag - create initial smudge
+            isDragging = true
+            createSmudgeParticle(at: currentPosition)
+        } else {
+            // Continue drag - create trail
+            if let lastPos = lastDragPosition {
+                let distance = sqrt(pow(currentPosition.x - lastPos.x, 2) + pow(currentPosition.y - lastPos.y, 2))
+                if distance > 3.0 { // Ultra-tight spacing for seamless smudge trail
+                    createSmudgeParticle(at: currentPosition)
+                }
+            }
+        }
+        
+        lastDragPosition = currentPosition
+    }
+    
+    private func handleDragEnded() {
+        isDragging = false
+        lastDragPosition = nil
+    }
+    
+    private func createSmudgeParticle(at position: CGPoint) {
+        let newParticle = SmudgeParticle(position: position)
+        smudgeParticles.append(newParticle)
+        
+        // Limit particles and automatically remove oldest
+        if smudgeParticles.count > 35 {
+            smudgeParticles.removeFirst()
+        }
+        
+        // Start fade-out almost immediately with tight staggered timing
+        let particleIndex = smudgeParticles.count - 1
+        let fadeStartDelay = 0.05 + (Double(particleIndex) * 0.008) // Start fading 0.008s apart
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + fadeStartDelay) {
+            // Super quick fade-out animation
+            withAnimation(.easeOut(duration: 0.25)) {
+                if let index = smudgeParticles.firstIndex(where: { $0.id == newParticle.id }) {
+                    smudgeParticles[index].opacity = 0.0
+                }
             }
             
-            
+            // Remove completely after fade finishes
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                smudgeParticles.removeAll { $0.id == newParticle.id }
+            }
         }
     }
     
@@ -239,25 +316,6 @@ struct ContentView: View {
         }
     }
     
-    private func performFunRefresh() async {
-        // Initial haptic
-        HapticsManager.shared.impact(.light)
-        
-        // Fun celebration emojis animation
-        let celebrationEmojis = ["🎉", "✨", "🎊", "🌟", "💫"]
-        
-        // Simulate loading with multiple small haptics
-        for _ in 0..<3 {
-            HapticsManager.shared.impact(.soft)
-            try? await Task.sleep(nanoseconds: 300_000_000) // 0.3 seconds
-        }
-        
-        // Success haptic
-        HapticsManager.shared.notification(.success)
-        
-        // You could refresh data here
-        // await todoViewModel.refreshData()
-    }
 }
 
 struct TodoRowView: View {
