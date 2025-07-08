@@ -79,24 +79,22 @@ struct SettingsView: View {
     @ObservedObject var todoViewModel: TodoViewModel
     @Binding var selectedAppIcon: AppIconOption
     @Binding var selectedFont: FontOption
-    @Binding var emojiTheme: EmojiTheme
+    @Binding var tintedBackgrounds: Bool
     @State private var selectedArchivedTodo: Todo? = nil
     var onShowAccentSheet: (() -> Void)? = nil
     var onShowAppIconSheet: (() -> Void)? = nil
     var onShowThemeSheet: (() -> Void)? = nil
     var onShowFontSheet: (() -> Void)? = nil
-    var onShowEmojiThemeSheet: (() -> Void)? = nil
     
-    let accentColors: [(Color, String)] = [
-        (Color(UIColor.systemBlue), "Blue"),
-        (Color(UIColor.systemRed), "Red"),
-        (Color(UIColor.systemGreen), "Green"),
-        (Color(UIColor.systemOrange), "Orange"),
-        (Color(UIColor.systemPurple), "Purple"),
-        (Color(UIColor.systemPink), "Pink"),
-        (Color(UIColor.systemTeal), "Teal"),
-        (Color(UIColor.systemYellow), "Yellow")
-    ]
+    let accentColors: [(Color, String)] = MaterialColorCategory.allColors.map { ($0.color, $0.name) }
+    
+    private var tintedBackground: Color {
+        Color.tintedBackground(accentColor: accentColor, isEnabled: tintedBackgrounds, colorScheme: colorScheme)
+    }
+    
+    private var tintedSecondaryBackground: Color {
+        Color.tintedSecondaryBackground(accentColor: accentColor, isEnabled: tintedBackgrounds, colorScheme: colorScheme)
+    }
     
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -128,7 +126,7 @@ struct SettingsView: View {
                         }
                         .padding(.horizontal, 16)
                         .padding(.vertical, 12)
-                        .background(Color(UIColor.secondarySystemBackground))
+                        .background(tintedSecondaryBackground)
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(PlainButtonStyle())
@@ -140,7 +138,8 @@ struct SettingsView: View {
                     }) {
                         HStack {
                             Image(systemName: "paintpalette")
-                                .foregroundColor(.primary)
+                                .foregroundColor(accentColor)
+                                .materialStyle(accentColor: accentColor)
                             Text("Accent Color")
                                 .appFont(selectedFont)
                                 .foregroundColor(.primary)
@@ -151,7 +150,7 @@ struct SettingsView: View {
                         }
                         .padding(.horizontal, 16)
                         .padding(.vertical, 12)
-                        .background(Color(UIColor.secondarySystemBackground))
+                        .background(tintedSecondaryBackground)
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(PlainButtonStyle())
@@ -174,7 +173,7 @@ struct SettingsView: View {
                         }
                         .padding(.horizontal, 16)
                         .padding(.vertical, 12)
-                        .background(Color(UIColor.secondarySystemBackground))
+                        .background(tintedSecondaryBackground)
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(PlainButtonStyle())
@@ -197,36 +196,11 @@ struct SettingsView: View {
                         }
                         .padding(.horizontal, 16)
                         .padding(.vertical, 12)
-                        .background(Color(UIColor.secondarySystemBackground))
+                        .background(tintedSecondaryBackground)
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(PlainButtonStyle())
                     
-                    // Emoji Theme Row
-                    Button(action: { 
-                        HapticsManager.shared.impact(.soft)
-                        onShowEmojiThemeSheet?()
-                    }) {
-                        HStack {
-                            Image(systemName: "face.smiling")
-                                .foregroundColor(.primary)
-                            Text("Emoji Theme")
-                                .appFont(selectedFont)
-                                .foregroundColor(.primary)
-                            Spacer()
-                            Text(emojiTheme.displayName)
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                            Image(systemName: "chevron.right")
-                                .foregroundColor(.secondary)
-                                .font(.caption)
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 12)
-                        .background(Color(UIColor.secondarySystemBackground))
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(PlainButtonStyle())
                 }
                 .cornerRadius(10)
             }
@@ -265,6 +239,20 @@ struct SettingsView: View {
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
                     .background(Color(UIColor.secondarySystemBackground))
+                    
+                    Divider()
+                        .padding(.horizontal, 16)
+                    
+                    HStack {
+                        Text("Tinted Backgrounds")
+                            .appFont(selectedFont)
+                            .foregroundColor(.primary)
+                        Spacer()
+                        SkeuomorphicToggle(isOn: $tintedBackgrounds, accentColor: accentColor)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .background(Color(UIColor.secondarySystemBackground))
                 }
                 .cornerRadius(10)
             }
@@ -288,7 +276,7 @@ struct SettingsView: View {
                         }
                         .padding(.horizontal, 16)
                         .padding(.vertical, 12)
-                        .background(Color(UIColor.secondarySystemBackground))
+                        .background(tintedSecondaryBackground)
                     } else {
                         ForEach(todoViewModel.archivedTodos) { todo in
                             Button(action: { selectedArchivedTodo = todo }) {
@@ -447,10 +435,11 @@ struct SkeuomorphicToggle: View {
             onToggle?(newValue)
         }) {
             ZStack {
-                // Background track
+                // Background track with material texture
                 RoundedRectangle(cornerRadius: toggleHeight / 2)
                     .fill(backgroundGradient)
                     .frame(width: toggleWidth, height: toggleHeight)
+                    .materialStyle(accentColor: isOn ? accentColor : .gray)
                     .overlay(
                         RoundedRectangle(cornerRadius: toggleHeight / 2)
                             .stroke(

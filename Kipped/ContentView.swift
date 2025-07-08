@@ -48,14 +48,13 @@ struct ContentView: View {
     @State private var showingAppIconSheet = false
     @State private var showingThemeSheet = false
     @State private var showingFontSheet = false
-    @State private var showingEmojiThemeSheet = false
     @AppStorage("selectedAppIcon") private var selectedAppIcon: AppIconOption = .default
     @Binding var appTheme: AppTheme
     @Binding var accentColor: Color
     @Binding var notificationsEnabled: Bool
     @Binding var hapticsEnabled: Bool
     @Binding var selectedFont: FontOption
-    @Binding var emojiTheme: EmojiTheme
+    @Binding var tintedBackgrounds: Bool
     
     private var currentColorScheme: ColorScheme? {
         switch appTheme {
@@ -65,68 +64,30 @@ struct ContentView: View {
         }
     }
     
-    private func getParticleType(for theme: EmojiTheme, index: Int) -> ParticleType {
-        switch theme {
-        case .none:
-            return .bubble
-        case .celebration:
-            return [.sparkle, .star][index % 2]
-        case .nature:
-            return [.sparkle, .bubble][index % 2]
-        case .space:
-            return [.star, .sparkle][index % 2]
-        case .zen:
-            return [.bubble, .sparkle][index % 2]
-        case .energy:
-            return [.star, .sparkle][index % 2]
-        case .ocean:
-            return [.bubble, .bubble, .sparkle][index % 3]
-        case .cute:
-            return [.heart, .sparkle, .bubble][index % 3]
-        }
+    private var tintedBackground: Color {
+        Color.tintedBackground(accentColor: accentColor, isEnabled: tintedBackgrounds, colorScheme: currentColorScheme)
     }
+    
+    private var tintedSecondaryBackground: Color {
+        Color.tintedSecondaryBackground(accentColor: accentColor, isEnabled: tintedBackgrounds, colorScheme: currentColorScheme)
+    }
+    
     
     var body: some View {
         ZStack {
             NavigationStack {
             ZStack {
-                // Background with emoji theme
-                if emojiTheme != .none {
-                    Color(emojiTheme.backgroundColor)
-                        .ignoresSafeArea()
-                    
-                    // Live blur effects
-                    LiveBlurView()
-                    
-                    // Floating emojis
-                    ForEach(0..<8) { index in
-                        FloatingEmojiView(
-                            emoji: emojiTheme.emojis.shuffled()[index % emojiTheme.emojis.count],
-                            delay: Double.random(in: 0...15),
-                            screenIndex: index
-                        )
-                    }
-                    
-                    // Particle systems based on theme
-                    ForEach(0..<6) { index in
-                        ParticleView(
-                            type: getParticleType(for: emojiTheme, index: index),
-                            delay: Double.random(in: 0...12),
-                            screenIndex: index
-                        )
-                    }
-                } else {
-                    Color(UIColor.systemBackground)
-                        .ignoresSafeArea()
-                    
-                    // Subtle particles for default theme
-                    ForEach(0..<4) { index in
-                        ParticleView(
-                            type: .bubble,
-                            delay: Double.random(in: 0...10),
-                            screenIndex: index
-                        )
-                    }
+                // Simple tinted background
+                tintedBackground
+                    .ignoresSafeArea()
+                
+                // Subtle particles
+                ForEach(0..<4) { index in
+                    ParticleView(
+                        type: .bubble,
+                        delay: Double.random(in: 0...10),
+                        screenIndex: index
+                    )
                 }
                 
                 VStack {
@@ -139,6 +100,7 @@ struct ContentView: View {
                                 .aspectRatio(contentMode: .fit)
                                 .frame(width: 22, height: 22)
                                 .foregroundColor(accentColor)
+                                .materialStyle(accentColor: accentColor)
                         }
                         Spacer()
                     }
@@ -164,7 +126,10 @@ struct ContentView: View {
                                             onArchive: {
                                                 todoViewModel.archiveTodo(todo)
                                             },
-                                            selectedFont: selectedFont
+                                            selectedFont: selectedFont,
+                                            accentColor: accentColor,
+                                            tintedBackgrounds: tintedBackgrounds,
+                                            colorScheme: currentColorScheme
                                         )
                                         .id(todo.id)
                                     }
@@ -218,17 +183,19 @@ struct ContentView: View {
                             todoViewModel: todoViewModel,
                             selectedAppIcon: $selectedAppIcon,
                             selectedFont: $selectedFont,
-                            emojiTheme: $emojiTheme,
+                            tintedBackgrounds: $tintedBackgrounds,
                             onShowAccentSheet: { showingAccentSheet = true },
                             onShowAppIconSheet: { showingAppIconSheet = true },
                             onShowThemeSheet: { showingThemeSheet = true },
-                            onShowFontSheet: { showingFontSheet = true },
-                            onShowEmojiThemeSheet: { showingEmojiThemeSheet = true }
+                            onShowFontSheet: { showingFontSheet = true }
                         )
                     },
                     onDismiss: {
                         withAnimation { showingSettings = false }
-                    }
+                    },
+                    accentColor: accentColor,
+                    tintedBackgrounds: tintedBackgrounds,
+                    currentColorScheme: currentColorScheme
                 )
             )
             .onChange(of: showingSettings) { newValue in
@@ -237,7 +204,6 @@ struct ContentView: View {
                     showingAppIconSheet = false
                     showingThemeSheet = false
                     showingFontSheet = false
-                    showingEmojiThemeSheet = false
                 }
             }
             .onAppear {
@@ -267,7 +233,9 @@ struct ContentView: View {
                     ],
                     onColorSelected: { color in
                         // Don't close automatically - let user tap outside to close
-                    }
+                    },
+                    tintedBackgrounds: tintedBackgrounds,
+                    currentColorScheme: currentColorScheme
                 )
                     .ignoresSafeArea(.all)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -329,23 +297,6 @@ struct ContentView: View {
                 }
             }
             
-            if showingEmojiThemeSheet {
-                ZStack {
-                    VisualEffectView(effect: UIBlurEffect(style: .light))
-                        .ignoresSafeArea(.all)
-                        .overlay(Color.clear)
-                        .transition(.opacity)
-                    EmojiThemePickerOverlay(
-                    isPresented: $showingEmojiThemeSheet,
-                    selectedTheme: $emojiTheme,
-                    onThemeSelected: { theme in
-                        emojiTheme = theme
-                    }
-                )
-                    .ignoresSafeArea(.all)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-                }
-            }
         }
     }
     
@@ -427,6 +378,9 @@ struct TodoRowView: View {
     @ObservedObject var todoViewModel: TodoViewModel
     let showCompletion: Bool
     let selectedFont: FontOption
+    let accentColor: Color
+    let tintedBackgrounds: Bool
+    let colorScheme: ColorScheme?
     
     var body: some View {
         HStack {
@@ -459,7 +413,7 @@ struct TodoRowView: View {
             Spacer()
         }
         .padding(.vertical, 4)
-        .listRowBackground(Color(UIColor.secondarySystemBackground))
+        .listRowBackground(Color.tintedSecondaryBackground(accentColor: accentColor, isEnabled: tintedBackgrounds, colorScheme: colorScheme))
     }
     
     private func reminderString(from date: Date) -> String {
@@ -501,12 +455,15 @@ struct TodoCardView: View {
     let onTap: () -> Void
     let onArchive: () -> Void
     let selectedFont: FontOption
+    let accentColor: Color
+    let tintedBackgrounds: Bool
+    let colorScheme: ColorScheme?
 
     var body: some View {
         Button(action: onTap) {
-            TodoRowView(todo: todo, todoViewModel: todoViewModel, showCompletion: false, selectedFont: selectedFont)
+            TodoRowView(todo: todo, todoViewModel: todoViewModel, showCompletion: false, selectedFont: selectedFont, accentColor: accentColor, tintedBackgrounds: tintedBackgrounds, colorScheme: colorScheme)
         .padding()
-                .background(Color(UIColor.secondarySystemBackground))
+                .background(Color.tintedSecondaryBackground(accentColor: accentColor, isEnabled: tintedBackgrounds, colorScheme: colorScheme))
                 .cornerRadius(16)
         }
         .buttonStyle(PlainButtonStyle())
@@ -570,6 +527,13 @@ struct BottomSheet<Content: View>: View {
     let isPresented: Bool
     let content: () -> Content
     let onDismiss: (() -> Void)?
+    let accentColor: Color
+    let tintedBackgrounds: Bool
+    let currentColorScheme: ColorScheme?
+    
+    private var tintedBackground: Color {
+        Color.tintedBackground(accentColor: accentColor, isEnabled: tintedBackgrounds, colorScheme: currentColorScheme)
+    }
     
     @State private var dragOffset: CGFloat = 0
     @State private var isDragging: Bool = false
@@ -607,7 +571,7 @@ struct BottomSheet<Content: View>: View {
                             Spacer().frame(height: 16)
                         }
                         .frame(maxWidth: .infinity)
-                        .background(Color(UIColor.systemBackground))
+                        .background(tintedBackground)
                         .clipShape(
                             RoundedCorner(radius: cornerRadius, corners: [.topLeft, .topRight])
                         )
@@ -628,10 +592,10 @@ struct BottomSheet<Content: View>: View {
                             }
                         }
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .background(Color(UIColor.systemBackground))
+                        .background(tintedBackground)
                     }
                     .frame(height: sheetHeight, alignment: .top)
-                    .background(Color(UIColor.systemBackground))
+                    .background(tintedBackground)
                     .clipShape(
                         RoundedCorner(radius: cornerRadius, corners: [.topLeft, .topRight])
                     )
@@ -820,6 +784,532 @@ struct SkeuomorphicColorButton: View {
     }
 }
 
+struct MaterialColorButton: View {
+    let colorInfo: MaterialColorInfo
+    let isSelected: Bool
+    let action: () -> Void
+    @State private var isPressed = false
+    @Environment(\.colorScheme) var colorScheme
+    
+    private var buttonSize: CGFloat { 64 }
+    
+    private var brightColor: Color {
+        let uiColor = UIColor(colorInfo.color)
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        uiColor.getRed(&r, green: &g, blue: &b, alpha: &a)
+        
+        return Color(
+            red: min(1.0, r + 0.3),
+            green: min(1.0, g + 0.3),
+            blue: min(1.0, b + 0.3)
+        )
+    }
+    
+    private var darkColor: Color {
+        let uiColor = UIColor(colorInfo.color)
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        uiColor.getRed(&r, green: &g, blue: &b, alpha: &a)
+        
+        return Color(
+            red: max(0.0, r - 0.4),
+            green: max(0.0, g - 0.4),
+            blue: max(0.0, b - 0.4)
+        )
+    }
+    
+    private var mainGradient: RadialGradient {
+        RadialGradient(
+            gradient: Gradient(stops: [
+                .init(color: brightColor.opacity(0.95), location: 0.0),
+                .init(color: colorInfo.color, location: 0.4),
+                .init(color: darkColor.opacity(0.8), location: 0.8),
+                .init(color: darkColor.opacity(0.9), location: 1.0)
+            ]),
+            center: UnitPoint(x: 0.3, y: 0.3),
+            startRadius: 0,
+            endRadius: buttonSize * 0.8
+        )
+    }
+    
+    @ViewBuilder
+    private var textureOverlay: some View {
+        switch colorInfo.type {
+        case .stone:
+            stoneTexture
+        case .metallic:
+            metallicTexture
+        case .gemstone:
+            gemstoneTexture
+        case .brushedMetal:
+            brushedMetalTexture
+        case .patinaMetal:
+            patinaMetalTexture
+        case .carbonFiber:
+            carbonFiberTexture
+        case .anodized:
+            anodizedTexture
+        case .leather:
+            leatherTexture
+        case .fabric:
+            fabricTexture
+        case .velvet:
+            velvetTexture
+        case .canvas:
+            canvasTexture
+        case .prismatic:
+            prismaticTexture
+        case .opalescent:
+            opalescentTexture
+        case .holographic:
+            holographicTexture
+        case .iridescent:
+            iridescentTexture
+        case .solid:
+            EmptyView()
+        }
+    }
+    
+    private var stoneTexture: some View {
+        ZStack {
+            ForEach(0..<8) { i in
+                Circle()
+                    .fill(colorScheme == .dark ? Color.white.opacity(0.08) : Color.black.opacity(0.08))
+                    .frame(width: CGFloat(i % 2 == 0 ? 4 : 5), height: CGFloat(i % 2 == 0 ? 4 : 5))
+                    .offset(
+                        x: cos(CGFloat(i) * .pi / 4) * buttonSize * 0.25,
+                        y: sin(CGFloat(i) * .pi / 4) * buttonSize * 0.25
+                    )
+            }
+        }
+        .clipShape(Circle())
+    }
+    
+    private var metallicTexture: some View {
+        Circle()
+            .fill(
+                LinearGradient(
+                    gradient: Gradient(stops: [
+                        .init(color: Color.white.opacity(0.4), location: 0.0),
+                        .init(color: Color.white.opacity(0.1), location: 0.3),
+                        .init(color: Color.clear, location: 0.5),
+                        .init(color: Color.black.opacity(0.1), location: 0.7),
+                        .init(color: Color.black.opacity(0.3), location: 1.0)
+                    ]),
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+            .rotationEffect(.degrees(45))
+    }
+    
+    private var gemstoneTexture: some View {
+        ZStack {
+            ForEach(0..<6) { i in
+                Triangle()
+                    .fill(
+                        LinearGradient(
+                            gradient: Gradient(colors: [
+                                Color.white.opacity(0.3),
+                                Color.white.opacity(0.05)
+                            ]),
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+                    .frame(width: buttonSize * 0.6, height: buttonSize * 0.6)
+                    .rotationEffect(.degrees(Double(i) * 60))
+            }
+        }
+        .clipShape(Circle())
+    }
+    
+    private var brushedMetalTexture: some View {
+        ZStack {
+            ForEach(0..<20) { i in
+                Rectangle()
+                    .fill(
+                        LinearGradient(
+                            gradient: Gradient(colors: [
+                                Color.white.opacity(0.1),
+                                Color.white.opacity(0.05),
+                                Color.black.opacity(0.05)
+                            ]),
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .frame(width: buttonSize * 1.2, height: 0.8)
+                    .offset(y: CGFloat(i - 10) * 3.2)
+                    .rotationEffect(.degrees(15))
+            }
+        }
+        .clipShape(Circle())
+    }
+    
+    private var patinaMetalTexture: some View {
+        ZStack {
+            ForEach(0..<12) { i in
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            gradient: Gradient(colors: [
+                                Color.green.opacity(0.15),
+                                Color.blue.opacity(0.08),
+                                Color.clear
+                            ]),
+                            center: .center,
+                            startRadius: 0,
+                            endRadius: 8
+                        )
+                    )
+                    .frame(width: CGFloat(4 + i % 6), height: CGFloat(4 + i % 6))
+                    .offset(
+                        x: cos(CGFloat(i) * .pi / 6 + 0.5) * buttonSize * 0.28,
+                        y: sin(CGFloat(i) * .pi / 6 + 0.3) * buttonSize * 0.28
+                    )
+            }
+        }
+        .clipShape(Circle())
+    }
+    
+    private var carbonFiberTexture: some View {
+        ZStack {
+            ForEach(0..<8) { i in
+                Rectangle()
+                    .fill(
+                        LinearGradient(
+                            gradient: Gradient(colors: [
+                                Color.white.opacity(0.08),
+                                Color.black.opacity(0.15),
+                                Color.white.opacity(0.08)
+                            ]),
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .frame(width: buttonSize, height: 4)
+                    .offset(y: CGFloat(i - 4) * 8)
+            }
+            ForEach(0..<8) { i in
+                Rectangle()
+                    .fill(
+                        LinearGradient(
+                            gradient: Gradient(colors: [
+                                Color.black.opacity(0.08),
+                                Color.white.opacity(0.15),
+                                Color.black.opacity(0.08)
+                            ]),
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+                    .frame(width: 4, height: buttonSize)
+                    .offset(x: CGFloat(i - 4) * 8)
+                    .opacity(0.7)
+            }
+        }
+        .clipShape(Circle())
+    }
+    
+    private var anodizedTexture: some View {
+        ZStack {
+            ForEach(0..<15) { i in
+                Ellipse()
+                    .stroke(
+                        LinearGradient(
+                            gradient: Gradient(colors: [
+                                Color.white.opacity(0.12),
+                                Color.clear,
+                                Color.black.opacity(0.08)
+                            ]),
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 0.5
+                    )
+                    .frame(width: buttonSize * 0.2 + CGFloat(i) * 3, height: buttonSize * 0.2 + CGFloat(i) * 3)
+            }
+        }
+        .clipShape(Circle())
+    }
+    
+    private var leatherTexture: some View {
+        ZStack {
+            ForEach(0..<8) { i in
+                RoundedRectangle(cornerRadius: 1)
+                    .fill(Color.black.opacity(0.15))
+                    .frame(width: CGFloat(8 + i % 4), height: 1.5)
+                    .rotationEffect(.degrees(Double(i * 23)))
+                    .offset(
+                        x: cos(CGFloat(i) * .pi / 4) * buttonSize * 0.2,
+                        y: sin(CGFloat(i) * .pi / 4) * buttonSize * 0.2
+                    )
+            }
+            ForEach(0..<15) { i in
+                Circle()
+                    .fill(colorScheme == .dark ? Color.white.opacity(0.03) : Color.black.opacity(0.06))
+                    .frame(width: 2, height: 2)
+                    .offset(
+                        x: cos(CGFloat(i) * .pi / 7.5 + 1.2) * buttonSize * 0.3,
+                        y: sin(CGFloat(i) * .pi / 7.5 + 0.8) * buttonSize * 0.3
+                    )
+            }
+        }
+        .clipShape(Circle())
+    }
+    
+    private var fabricTexture: some View {
+        ZStack {
+            ForEach(0..<12) { i in
+                Rectangle()
+                    .fill(Color.blue.opacity(0.08))
+                    .frame(width: buttonSize, height: 2)
+                    .offset(y: CGFloat(i - 6) * 5)
+            }
+            ForEach(0..<12) { i in
+                Rectangle()
+                    .fill(Color.indigo.opacity(0.06))
+                    .frame(width: 2, height: buttonSize)
+                    .offset(x: CGFloat(i - 6) * 5)
+            }
+        }
+        .clipShape(Circle())
+    }
+    
+    private var velvetTexture: some View {
+        ZStack {
+            ForEach(0..<25) { i in
+                Rectangle()
+                    .fill(
+                        LinearGradient(
+                            gradient: Gradient(colors: [
+                                darkColor.opacity(0.12),
+                                Color.clear,
+                                brightColor.opacity(0.08)
+                            ]),
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 1, height: buttonSize * 0.8)
+                    .offset(x: CGFloat(i - 12) * 2.5)
+                    .rotationEffect(.degrees(Double(i % 3 - 1) * 2))
+            }
+        }
+        .clipShape(Circle())
+    }
+    
+    private var canvasTexture: some View {
+        ZStack {
+            ForEach(0..<10) { i in
+                Rectangle()
+                    .fill(Color.brown.opacity(0.08))
+                    .frame(width: buttonSize, height: 3)
+                    .offset(y: CGFloat(i - 5) * 6)
+            }
+            ForEach(0..<10) { i in
+                Rectangle()
+                    .fill(Color.brown.opacity(0.06))
+                    .frame(width: 3, height: buttonSize)
+                    .offset(x: CGFloat(i - 5) * 6)
+            }
+        }
+        .clipShape(Circle())
+    }
+    
+    private var prismaticTexture: some View {
+        let prismaticGradient = LinearGradient(
+            gradient: Gradient(colors: [
+                Color.red.opacity(0.1),
+                Color.orange.opacity(0.08),
+                Color.yellow.opacity(0.06),
+                Color.green.opacity(0.08),
+                Color.blue.opacity(0.1),
+                Color.purple.opacity(0.08)
+            ]),
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+        
+        return ZStack {
+            ForEach(0..<6) { i in
+                Rectangle()
+                    .fill(prismaticGradient)
+                    .frame(width: buttonSize * 1.2, height: 2)
+                    .offset(y: CGFloat(i - 3) * 8)
+                    .rotationEffect(.degrees(Double(i) * 15))
+            }
+        }
+        .clipShape(Circle())
+    }
+    
+    private var opalescentTexture: some View {
+        ZStack {
+            ForEach(0..<8) { i in
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            gradient: Gradient(colors: [
+                                Color.pink.opacity(0.15),
+                                Color.blue.opacity(0.1),
+                                Color.green.opacity(0.08),
+                                Color.clear
+                            ]),
+                            center: .center,
+                            startRadius: 0,
+                            endRadius: 12
+                        )
+                    )
+                    .frame(width: 16, height: 16)
+                    .offset(
+                        x: cos(CGFloat(i) * .pi / 4) * buttonSize * 0.25,
+                        y: sin(CGFloat(i) * .pi / 4) * buttonSize * 0.25
+                    )
+            }
+        }
+        .clipShape(Circle())
+    }
+    
+    private var holographicTexture: some View {
+        let holographicGradient = AngularGradient(
+            gradient: Gradient(colors: [
+                Color.cyan.opacity(0.2),
+                Color.purple.opacity(0.15),
+                Color.yellow.opacity(0.1),
+                Color.cyan.opacity(0.2)
+            ]),
+            center: .center
+        )
+        
+        return ZStack {
+            ForEach(0..<12) { i in
+                Ellipse()
+                    .stroke(holographicGradient, lineWidth: 0.8)
+                    .frame(width: CGFloat(i) * 4 + 8, height: CGFloat(i) * 4 + 8)
+            }
+        }
+        .clipShape(Circle())
+    }
+    
+    private var iridescentTexture: some View {
+        ZStack {
+            ForEach(0..<4) { i in
+                let rainbowColor = Color.rainbow(at: Double(i) * 0.25).opacity(0.15)
+                let gradientCenter = UnitPoint(x: 0.3 + Double(i) * 0.15, y: 0.3 + Double(i) * 0.15)
+                
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            gradient: Gradient(colors: [
+                                Color.clear,
+                                rainbowColor,
+                                Color.clear
+                            ]),
+                            center: gradientCenter,
+                            startRadius: 0,
+                            endRadius: buttonSize * 0.4
+                        )
+                    )
+                    .frame(width: buttonSize, height: buttonSize)
+            }
+        }
+        .clipShape(Circle())
+    }
+    
+    var body: some View {
+        Button(action: {
+            HapticsManager.shared.impact(.soft)
+            action()
+        }) {
+            ZStack {
+                // Shadow
+                Circle()
+                    .fill(Color.black.opacity(0.1))
+                    .frame(width: buttonSize + 4, height: buttonSize + 4)
+                    .blur(radius: 2)
+                    .offset(x: 0, y: 2)
+                
+                // Main button
+                Circle()
+                    .fill(mainGradient)
+                    .frame(width: buttonSize, height: buttonSize)
+                    .overlay(textureOverlay)
+                    .overlay(
+                        Circle()
+                            .stroke(
+                                LinearGradient(
+                                    gradient: Gradient(stops: [
+                                        .init(color: Color.white.opacity(0.4), location: 0.0),
+                                        .init(color: Color.clear, location: 0.15),
+                                        .init(color: Color.clear, location: 0.85),
+                                        .init(color: Color.black.opacity(0.4), location: 1.0)
+                                    ]),
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: 3
+                            )
+                    )
+                    .overlay(
+                        // Inner rim
+                        Circle()
+                            .stroke(
+                                LinearGradient(
+                                    gradient: Gradient(stops: [
+                                        .init(color: Color.white.opacity(0.9), location: 0.0),
+                                        .init(color: Color.white.opacity(0.3), location: 0.3),
+                                        .init(color: Color.clear, location: 0.7),
+                                        .init(color: Color.black.opacity(0.5), location: 1.0)
+                                    ]),
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: 1.5
+                            )
+                            .frame(width: buttonSize - 4, height: buttonSize - 4)
+                    )
+                    .overlay(
+                        // Gloss overlay
+                        Circle()
+                            .fill(
+                                LinearGradient(
+                                    gradient: Gradient(stops: [
+                                        .init(color: Color.white.opacity(0.6), location: 0.0),
+                                        .init(color: Color.white.opacity(0.2), location: 0.3),
+                                        .init(color: Color.clear, location: 0.7),
+                                        .init(color: Color.clear, location: 1.0)
+                                    ]),
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .frame(width: buttonSize * 0.7, height: buttonSize * 0.7)
+                            .offset(x: -buttonSize * 0.1, y: -buttonSize * 0.1)
+                    )
+                    .shadow(color: .black.opacity(0.3), radius: 12, x: 0, y: 6)
+                    .shadow(color: colorInfo.color.opacity(0.3), radius: 8, x: 0, y: 4)
+                    .overlay(
+                        // Selection indicator
+                        Circle()
+                            .stroke(Color.white, lineWidth: isSelected ? 3 : 0)
+                            .frame(width: buttonSize + 6, height: buttonSize + 6)
+                            .shadow(color: .black.opacity(isSelected ? 0.3 : 0), radius: 2)
+                            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isSelected)
+                    )
+                    .scaleEffect(isPressed ? 0.92 : 1.0)
+                    .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isPressed)
+            }
+        }
+        .buttonStyle(PlainButtonStyle())
+        .onLongPressGesture(minimumDuration: 0, maximumDistance: .infinity, pressing: { pressing in
+            withAnimation(.easeInOut(duration: 0.12)) {
+                isPressed = pressing
+            }
+        }, perform: {})
+    }
+}
+
+
 struct SkeuomorphicThemeButton: View {
     let theme: AppTheme
     let isSelected: Bool
@@ -964,6 +1454,8 @@ struct AccentColorPickerOverlay: View {
     @Binding var accentColor: Color
     let colors: [(Color, String)]
     let onColorSelected: (Color) -> Void
+    let tintedBackgrounds: Bool
+    let currentColorScheme: ColorScheme?
     @Environment(\.colorScheme) var colorScheme
     
     func isColorSelected(_ color1: Color, _ color2: Color) -> Bool {
@@ -984,35 +1476,51 @@ struct AccentColorPickerOverlay: View {
     
     var body: some View {
         ZStack {
-            Color.clear
-                .contentShape(Rectangle())
+            Color.black.opacity(0.3)
+                .ignoresSafeArea()
                 .onTapGesture {
                     isPresented = false
                 }
             
-            VStack(spacing: 0) {
+            VStack {
                 Spacer()
                 
-                VStack(spacing: 20) {
-                    
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: 12) {
-                        ForEach(colors, id: \.1) { color, name in
-                            SkeuomorphicColorButton(
-                                color: color,
-                                isSelected: isColorSelected(accentColor, color),
-                                action: {
-                                    accentColor = color
-                                    onColorSelected(color)
+                ScrollView {
+                    VStack(spacing: 25) {
+                        ForEach(MaterialColorCategory.allCategories, id: \.name) { category in
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text(category.name.uppercased())
+                                    .font(.caption2)
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(.secondary)
+                                    .padding(.horizontal, 20)
+                                
+                                LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: 10) {
+                                    ForEach(category.colors, id: \.name) { colorInfo in
+                                        MaterialColorButton(
+                                            colorInfo: colorInfo,
+                                            isSelected: isColorSelected(accentColor, colorInfo.color),
+                                            action: {
+                                                accentColor = colorInfo.color
+                                                onColorSelected(colorInfo.color)
+                                            }
+                                        )
+                                    }
                                 }
-                            )
+                                .padding(.horizontal, 20)
+                            }
                         }
                     }
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 40)
+                    .padding(.vertical, 30)
                 }
-                .background(Color.clear)
-                .padding(.horizontal, 20)
-                .padding(.bottom, 50)
+                .frame(maxHeight: UIScreen.main.bounds.height * 0.6)
+                .background(
+                    RoundedRectangle(cornerRadius: 20)
+                        .fill(Color.tintedSecondaryBackground(accentColor: accentColor, isEnabled: tintedBackgrounds, colorScheme: currentColorScheme))
+                )
+                .padding(.horizontal, 16)
+                .padding(.bottom, 20)
+                .scrollIndicators(.hidden)
             }
         }
     }
@@ -1180,63 +1688,6 @@ struct FontPickerOverlay: View {
     }
 }
 
-struct EmojiThemePickerOverlay: View {
-    @Binding var isPresented: Bool
-    @Binding var selectedTheme: EmojiTheme
-    let onThemeSelected: (EmojiTheme) -> Void
-    
-    var body: some View {
-        ZStack {
-            Color.clear
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    isPresented = false
-                }
-            
-            VStack(spacing: 0) {
-                Spacer()
-                
-                VStack(spacing: 20) {
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3), spacing: 16) {
-                        ForEach(EmojiTheme.allCases, id: \.self) { theme in
-                            Button(action: {
-                                HapticsManager.shared.impact(.soft)
-                                selectedTheme = theme
-                                onThemeSelected(theme)
-                            }) {
-                                VStack(spacing: 8) {
-                                    Text(theme == .none ? "✖️" : theme.emojis.first ?? "")
-                                        .font(.system(size: 40))
-                                    
-                                    Text(theme == .none ? "None" : theme.displayName.dropFirst(2))
-                                        .font(.caption)
-                                        .foregroundColor(.primary)
-                                }
-                                .frame(width: 90, height: 90)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 16)
-                                        .fill(selectedTheme == theme ? 
-                                              Color(UIColor.systemFill) : 
-                                              Color(UIColor.secondarySystemBackground))
-                                )
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 16)
-                                        .stroke(selectedTheme == theme ? Color.white : Color.clear, lineWidth: 2)
-                                )
-                            }
-                            .buttonStyle(PlainButtonStyle())
-                        }
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 40)
-                }
-                .background(Color.clear)
-                .padding(.horizontal, 20)
-                .padding(.bottom, 50)
-            }
-        }
-    }
-}
 
 struct EmptyStateView: View {
     @State private var gifURL: URL?
@@ -1484,10 +1935,11 @@ struct SkeuomorphicCreateButton: View {
                     .blur(radius: 2)
                     .offset(x: 0, y: 2)
                 
-                // Main button
+                // Main button with material texture
                 Circle()
                     .fill(mainGradient)
                     .frame(width: buttonSize, height: buttonSize)
+                    .materialStyle(accentColor: accentColor)
                     .overlay(
                         Circle()
                             .stroke(
@@ -1563,47 +2015,6 @@ struct SkeuomorphicCreateButton: View {
     }
 }
 
-// Floating emoji animation view
-struct FloatingEmojiView: View {
-    let emoji: String
-    let delay: Double
-    let screenIndex: Int
-    
-    @State private var yOffset: CGFloat = UIScreen.main.bounds.height
-    @State private var xOffset: CGFloat = 0
-    @State private var rotation: Double = Double.random(in: -45...45)
-    @State private var scale: CGFloat = CGFloat.random(in: 0.5...1.5)
-    
-    init(emoji: String, delay: Double, screenIndex: Int) {
-        self.emoji = emoji
-        self.delay = delay
-        self.screenIndex = screenIndex
-        
-        // Distribute emojis across full screen width with some randomness
-        let screenWidth = UIScreen.main.bounds.width
-        let basePosition = (screenWidth / 8) * CGFloat(screenIndex) - (screenWidth / 2)
-        let randomOffset = CGFloat.random(in: -40...40)
-        self._xOffset = State(initialValue: basePosition + randomOffset)
-    }
-    
-    var body: some View {
-        Text(emoji)
-            .font(.system(size: 40))
-            .opacity(0.3)
-            .scaleEffect(scale)
-            .rotationEffect(.degrees(rotation))
-            .offset(x: xOffset, y: yOffset)
-            .onAppear {
-                withAnimation(
-                    .linear(duration: Double.random(in: 10...20))
-                    .repeatForever(autoreverses: false)
-                    .delay(delay)
-                ) {
-                    yOffset = -UIScreen.main.bounds.height - 100
-                }
-            }
-    }
-}
 
 // MARK: - Particle System
 
@@ -1738,50 +2149,9 @@ struct ParticleView: View {
     }
 }
 
-// Live blur effect view
-struct LiveBlurView: View {
-    @State private var blurRadius: CGFloat = 0
-    @State private var opacity: Double = 0.1
-    
-    var body: some View {
-        Rectangle()
-            .fill(
-                LinearGradient(
-                    gradient: Gradient(colors: [
-                        Color.white.opacity(0.1),
-                        Color.blue.opacity(0.05),
-                        Color.purple.opacity(0.05),
-                        Color.clear
-                    ]),
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            )
-            .blur(radius: blurRadius)
-            .opacity(opacity)
-            .ignoresSafeArea()
-            .onAppear {
-                startBlurAnimation()
-            }
-    }
-    
-    private func startBlurAnimation() {
-        withAnimation(
-            .easeInOut(duration: Double.random(in: 4...8))
-            .repeatForever(autoreverses: true)
-        ) {
-            blurRadius = CGFloat.random(in: 10...25)
-        }
-        
-        withAnimation(
-            .easeInOut(duration: Double.random(in: 3...6))
-            .repeatForever(autoreverses: true)
-        ) {
-            opacity = Double.random(in: 0.05...0.2)
-        }
-    }
-}
 
+/*
 #Preview {
-    ContentView(appTheme: .constant(.dark), accentColor: .constant(.accentColor), notificationsEnabled: .constant(true), hapticsEnabled: .constant(true), selectedFont: .constant(.system), emojiTheme: .constant(.none))
+    ContentView(appTheme: .constant(.dark), accentColor: .constant(.accentColor), notificationsEnabled: .constant(true), hapticsEnabled: .constant(true), selectedFont: .constant(.system), tintedBackgrounds: .constant(false))
 }
+*/
