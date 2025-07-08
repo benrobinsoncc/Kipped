@@ -48,12 +48,14 @@ struct ContentView: View {
     @State private var showingAppIconSheet = false
     @State private var showingThemeSheet = false
     @State private var showingFontSheet = false
+    @State private var showingEmojiThemeSheet = false
     @AppStorage("selectedAppIcon") private var selectedAppIcon: AppIconOption = .default
     @Binding var appTheme: AppTheme
     @Binding var accentColor: Color
     @Binding var notificationsEnabled: Bool
     @Binding var hapticsEnabled: Bool
     @Binding var selectedFont: FontOption
+    @Binding var emojiTheme: EmojiTheme
     
     private var currentColorScheme: ColorScheme? {
         switch appTheme {
@@ -63,12 +65,69 @@ struct ContentView: View {
         }
     }
     
+    private func getParticleType(for theme: EmojiTheme, index: Int) -> ParticleType {
+        switch theme {
+        case .none:
+            return .bubble
+        case .celebration:
+            return [.sparkle, .star][index % 2]
+        case .nature:
+            return [.sparkle, .bubble][index % 2]
+        case .space:
+            return [.star, .sparkle][index % 2]
+        case .zen:
+            return [.bubble, .sparkle][index % 2]
+        case .energy:
+            return [.star, .sparkle][index % 2]
+        case .ocean:
+            return [.bubble, .bubble, .sparkle][index % 3]
+        case .cute:
+            return [.heart, .sparkle, .bubble][index % 3]
+        }
+    }
+    
     var body: some View {
         ZStack {
             NavigationStack {
             ZStack {
-                Color(UIColor.systemBackground)
-                    .ignoresSafeArea()
+                // Background with emoji theme
+                if emojiTheme != .none {
+                    Color(emojiTheme.backgroundColor)
+                        .ignoresSafeArea()
+                    
+                    // Live blur effects
+                    LiveBlurView()
+                    
+                    // Floating emojis
+                    ForEach(0..<8) { index in
+                        FloatingEmojiView(
+                            emoji: emojiTheme.emojis.shuffled()[index % emojiTheme.emojis.count],
+                            delay: Double.random(in: 0...15),
+                            screenIndex: index
+                        )
+                    }
+                    
+                    // Particle systems based on theme
+                    ForEach(0..<6) { index in
+                        ParticleView(
+                            type: getParticleType(for: emojiTheme, index: index),
+                            delay: Double.random(in: 0...12),
+                            screenIndex: index
+                        )
+                    }
+                } else {
+                    Color(UIColor.systemBackground)
+                        .ignoresSafeArea()
+                    
+                    // Subtle particles for default theme
+                    ForEach(0..<4) { index in
+                        ParticleView(
+                            type: .bubble,
+                            delay: Double.random(in: 0...10),
+                            screenIndex: index
+                        )
+                    }
+                }
                 
                 VStack {
                     HStack {
@@ -115,6 +174,9 @@ struct ContentView: View {
                                 // Add extra space at the bottom so the last card isn't covered by the create button
                                 Spacer().frame(height: 120).id("bottomSpacer")
                             }
+                            .refreshable {
+                                await performFunRefresh()
+                            }
                             .onChange(of: todoViewModel.activeTodos.count) { _ in
                                 withAnimation {
                                     scrollProxy.scrollTo("bottomSpacer", anchor: .bottom)
@@ -156,10 +218,12 @@ struct ContentView: View {
                             todoViewModel: todoViewModel,
                             selectedAppIcon: $selectedAppIcon,
                             selectedFont: $selectedFont,
+                            emojiTheme: $emojiTheme,
                             onShowAccentSheet: { showingAccentSheet = true },
                             onShowAppIconSheet: { showingAppIconSheet = true },
                             onShowThemeSheet: { showingThemeSheet = true },
-                            onShowFontSheet: { showingFontSheet = true }
+                            onShowFontSheet: { showingFontSheet = true },
+                            onShowEmojiThemeSheet: { showingEmojiThemeSheet = true }
                         )
                     },
                     onDismiss: {
@@ -173,6 +237,7 @@ struct ContentView: View {
                     showingAppIconSheet = false
                     showingThemeSheet = false
                     showingFontSheet = false
+                    showingEmojiThemeSheet = false
                 }
             }
             .onAppear {
@@ -263,6 +328,24 @@ struct ContentView: View {
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
             }
+            
+            if showingEmojiThemeSheet {
+                ZStack {
+                    VisualEffectView(effect: UIBlurEffect(style: .light))
+                        .ignoresSafeArea(.all)
+                        .overlay(Color.clear)
+                        .transition(.opacity)
+                    EmojiThemePickerOverlay(
+                    isPresented: $showingEmojiThemeSheet,
+                    selectedTheme: $emojiTheme,
+                    onThemeSelected: { theme in
+                        emojiTheme = theme
+                    }
+                )
+                    .ignoresSafeArea(.all)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+            }
         }
     }
     
@@ -316,6 +399,26 @@ struct ContentView: View {
         for index in offsets {
             todoViewModel.deleteTodo(todoViewModel.todos[index])
         }
+    }
+    
+    private func performFunRefresh() async {
+        // Initial haptic
+        HapticsManager.shared.impact(.light)
+        
+        // Fun celebration emojis animation
+        let celebrationEmojis = ["🎉", "✨", "🎊", "🌟", "💫"]
+        
+        // Simulate loading with multiple small haptics
+        for _ in 0..<3 {
+            HapticsManager.shared.impact(.soft)
+            try? await Task.sleep(nanoseconds: 300_000_000) // 0.3 seconds
+        }
+        
+        // Success haptic
+        HapticsManager.shared.notification(.success)
+        
+        // You could refresh data here
+        // await todoViewModel.refreshData()
     }
 }
 
@@ -1077,6 +1180,64 @@ struct FontPickerOverlay: View {
     }
 }
 
+struct EmojiThemePickerOverlay: View {
+    @Binding var isPresented: Bool
+    @Binding var selectedTheme: EmojiTheme
+    let onThemeSelected: (EmojiTheme) -> Void
+    
+    var body: some View {
+        ZStack {
+            Color.clear
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    isPresented = false
+                }
+            
+            VStack(spacing: 0) {
+                Spacer()
+                
+                VStack(spacing: 20) {
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3), spacing: 16) {
+                        ForEach(EmojiTheme.allCases, id: \.self) { theme in
+                            Button(action: {
+                                HapticsManager.shared.impact(.soft)
+                                selectedTheme = theme
+                                onThemeSelected(theme)
+                            }) {
+                                VStack(spacing: 8) {
+                                    Text(theme == .none ? "✖️" : theme.emojis.first ?? "")
+                                        .font(.system(size: 40))
+                                    
+                                    Text(theme == .none ? "None" : theme.displayName.dropFirst(2))
+                                        .font(.caption)
+                                        .foregroundColor(.primary)
+                                }
+                                .frame(width: 90, height: 90)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 16)
+                                        .fill(selectedTheme == theme ? 
+                                              Color(UIColor.systemFill) : 
+                                              Color(UIColor.secondarySystemBackground))
+                                )
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 16)
+                                        .stroke(selectedTheme == theme ? Color.white : Color.clear, lineWidth: 2)
+                                )
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 40)
+                }
+                .background(Color.clear)
+                .padding(.horizontal, 20)
+                .padding(.bottom, 50)
+            }
+        }
+    }
+}
+
 struct EmptyStateView: View {
     @State private var gifURL: URL?
     let selectedFont: FontOption
@@ -1402,6 +1563,225 @@ struct SkeuomorphicCreateButton: View {
     }
 }
 
+// Floating emoji animation view
+struct FloatingEmojiView: View {
+    let emoji: String
+    let delay: Double
+    let screenIndex: Int
+    
+    @State private var yOffset: CGFloat = UIScreen.main.bounds.height
+    @State private var xOffset: CGFloat = 0
+    @State private var rotation: Double = Double.random(in: -45...45)
+    @State private var scale: CGFloat = CGFloat.random(in: 0.5...1.5)
+    
+    init(emoji: String, delay: Double, screenIndex: Int) {
+        self.emoji = emoji
+        self.delay = delay
+        self.screenIndex = screenIndex
+        
+        // Distribute emojis across full screen width with some randomness
+        let screenWidth = UIScreen.main.bounds.width
+        let basePosition = (screenWidth / 8) * CGFloat(screenIndex) - (screenWidth / 2)
+        let randomOffset = CGFloat.random(in: -40...40)
+        self._xOffset = State(initialValue: basePosition + randomOffset)
+    }
+    
+    var body: some View {
+        Text(emoji)
+            .font(.system(size: 40))
+            .opacity(0.3)
+            .scaleEffect(scale)
+            .rotationEffect(.degrees(rotation))
+            .offset(x: xOffset, y: yOffset)
+            .onAppear {
+                withAnimation(
+                    .linear(duration: Double.random(in: 10...20))
+                    .repeatForever(autoreverses: false)
+                    .delay(delay)
+                ) {
+                    yOffset = -UIScreen.main.bounds.height - 100
+                }
+            }
+    }
+}
+
+// MARK: - Particle System
+
+enum ParticleType {
+    case bubble
+    case star
+    case sparkle
+    case heart
+}
+
+struct ParticleView: View {
+    let type: ParticleType
+    let delay: Double
+    let screenIndex: Int
+    
+    @State private var yOffset: CGFloat = UIScreen.main.bounds.height + 50
+    @State private var xOffset: CGFloat = 0
+    @State private var rotation: Double = 0
+    @State private var scale: CGFloat = 1
+    @State private var opacity: Double = 0.6
+    
+    init(type: ParticleType, delay: Double, screenIndex: Int) {
+        self.type = type
+        self.delay = delay
+        self.screenIndex = screenIndex
+        
+        // Distribute particles across full screen width
+        let screenWidth = UIScreen.main.bounds.width
+        let basePosition = (screenWidth / 6) * CGFloat(screenIndex) - (screenWidth / 2)
+        let randomOffset = CGFloat.random(in: -60...60)
+        self._xOffset = State(initialValue: basePosition + randomOffset)
+        
+        // Random initial properties
+        self._scale = State(initialValue: CGFloat.random(in: 0.3...1.2))
+        self._rotation = State(initialValue: Double.random(in: 0...360))
+    }
+    
+    var body: some View {
+        particleContent
+            .opacity(opacity)
+            .scaleEffect(scale)
+            .rotationEffect(.degrees(rotation))
+            .offset(x: xOffset, y: yOffset)
+            .onAppear {
+                startAnimation()
+            }
+    }
+    
+    @ViewBuilder
+    private var particleContent: some View {
+        switch type {
+        case .bubble:
+            Circle()
+                .fill(
+                    RadialGradient(
+                        gradient: Gradient(colors: [
+                            Color.white.opacity(0.3),
+                            Color.blue.opacity(0.1),
+                            Color.clear
+                        ]),
+                        center: UnitPoint(x: 0.3, y: 0.3),
+                        startRadius: 1,
+                        endRadius: 20
+                    )
+                )
+                .frame(width: 25, height: 25)
+                .overlay(
+                    Circle()
+                        .stroke(Color.white.opacity(0.2), lineWidth: 1)
+                )
+        case .star:
+            Image(systemName: "star.fill")
+                .font(.system(size: 16))
+                .foregroundColor(.yellow.opacity(0.7))
+        case .sparkle:
+            Image(systemName: "sparkles")
+                .font(.system(size: 14))
+                .foregroundColor(.white.opacity(0.8))
+        case .heart:
+            Image(systemName: "heart.fill")
+                .font(.system(size: 12))
+                .foregroundColor(.pink.opacity(0.6))
+        }
+    }
+    
+    private func startAnimation() {
+        withAnimation(
+            .linear(duration: Double.random(in: 8...15))
+            .repeatForever(autoreverses: false)
+            .delay(delay)
+        ) {
+            yOffset = -UIScreen.main.bounds.height - 100
+        }
+        
+        // Floating motion
+        withAnimation(
+            .easeInOut(duration: Double.random(in: 2...4))
+            .repeatForever(autoreverses: true)
+            .delay(delay)
+        ) {
+            xOffset += CGFloat.random(in: -30...30)
+        }
+        
+        // Rotation animation
+        withAnimation(
+            .linear(duration: Double.random(in: 4...8))
+            .repeatForever(autoreverses: false)
+            .delay(delay)
+        ) {
+            rotation += 360
+        }
+        
+        // Scale pulsing for certain particle types
+        if type == .sparkle || type == .heart {
+            withAnimation(
+                .easeInOut(duration: Double.random(in: 1...2))
+                .repeatForever(autoreverses: true)
+                .delay(delay)
+            ) {
+                scale *= 1.5
+            }
+        }
+        
+        // Opacity fading
+        withAnimation(
+            .easeInOut(duration: Double.random(in: 3...5))
+            .repeatForever(autoreverses: true)
+            .delay(delay)
+        ) {
+            opacity = Double.random(in: 0.2...0.8)
+        }
+    }
+}
+
+// Live blur effect view
+struct LiveBlurView: View {
+    @State private var blurRadius: CGFloat = 0
+    @State private var opacity: Double = 0.1
+    
+    var body: some View {
+        Rectangle()
+            .fill(
+                LinearGradient(
+                    gradient: Gradient(colors: [
+                        Color.white.opacity(0.1),
+                        Color.blue.opacity(0.05),
+                        Color.purple.opacity(0.05),
+                        Color.clear
+                    ]),
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+            .blur(radius: blurRadius)
+            .opacity(opacity)
+            .ignoresSafeArea()
+            .onAppear {
+                startBlurAnimation()
+            }
+    }
+    
+    private func startBlurAnimation() {
+        withAnimation(
+            .easeInOut(duration: Double.random(in: 4...8))
+            .repeatForever(autoreverses: true)
+        ) {
+            blurRadius = CGFloat.random(in: 10...25)
+        }
+        
+        withAnimation(
+            .easeInOut(duration: Double.random(in: 3...6))
+            .repeatForever(autoreverses: true)
+        ) {
+            opacity = Double.random(in: 0.05...0.2)
+        }
+    }
+}
+
 #Preview {
-    ContentView(appTheme: .constant(.dark), accentColor: .constant(.accentColor), notificationsEnabled: .constant(true), hapticsEnabled: .constant(true), selectedFont: .constant(.system))
+    ContentView(appTheme: .constant(.dark), accentColor: .constant(.accentColor), notificationsEnabled: .constant(true), hapticsEnabled: .constant(true), selectedFont: .constant(.system), emojiTheme: .constant(.none))
 }

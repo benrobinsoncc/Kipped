@@ -12,6 +12,7 @@ struct AddTodoView: View {
     var todoToEdit: Todo?
     @Binding var colorScheme: ColorScheme
     @Binding var accentColor: Color
+    @Binding var selectedFont: FontOption
     var isArchivedMode: Bool = false
     var onUnarchive: (() -> Void)? = nil
     
@@ -24,16 +25,19 @@ struct AddTodoView: View {
         NavigationView {
             VStack(spacing: 20) {
                 TextField("Enter note title", text: $title)
+                    .appFont(selectedFont)
                     .font(.title2)
                     .padding()
                     .background(Color(UIColor.secondarySystemBackground))
                     .cornerRadius(12)
                 
                 Toggle("Set Reminder", isOn: $hasReminder)
+                    .appFont(selectedFont)
                     .tint(accentColor)
                 
                 if hasReminder {
                     DatePicker("Reminder Date", selection: $reminderDate, displayedComponents: [.date, .hourAndMinute])
+                        .appFont(selectedFont)
                         .tint(accentColor)
                 }
                 
@@ -44,6 +48,7 @@ struct AddTodoView: View {
                         onUnarchive?()
                         dismiss()
                     }
+                    .appFont(selectedFont)
                     .font(.headline)
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
@@ -60,6 +65,7 @@ struct AddTodoView: View {
                     Button("Cancel") {
                         dismiss()
                     }
+                    .appFont(selectedFont)
                 }
                 
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -71,6 +77,7 @@ struct AddTodoView: View {
                         }
                         dismiss()
                     }
+                    .appFont(selectedFont)
                     .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }
@@ -89,5 +96,5 @@ struct AddTodoView: View {
 }
 
 #Preview {
-    AddTodoView(todoViewModel: TodoViewModel(), colorScheme: .constant(.dark), accentColor: .constant(.blue))
+    AddTodoView(todoViewModel: TodoViewModel(), colorScheme: .constant(.dark), accentColor: .constant(.blue), selectedFont: .constant(.system))
 }

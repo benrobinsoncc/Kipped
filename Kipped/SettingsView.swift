@@ -77,13 +77,15 @@ struct SettingsView: View {
     @Binding var hapticsEnabled: Bool
     var colorScheme: ColorScheme?
     @ObservedObject var todoViewModel: TodoViewModel
-    @State private var selectedArchivedTodo: Todo? = nil
     @Binding var selectedAppIcon: AppIconOption
     @Binding var selectedFont: FontOption
+    @Binding var emojiTheme: EmojiTheme
+    @State private var selectedArchivedTodo: Todo? = nil
     var onShowAccentSheet: (() -> Void)? = nil
     var onShowAppIconSheet: (() -> Void)? = nil
     var onShowThemeSheet: (() -> Void)? = nil
     var onShowFontSheet: (() -> Void)? = nil
+    var onShowEmojiThemeSheet: (() -> Void)? = nil
     
     let accentColors: [(Color, String)] = [
         (Color(UIColor.systemBlue), "Blue"),
@@ -189,6 +191,32 @@ struct SettingsView: View {
                                 .appFont(selectedFont)
                                 .foregroundColor(.primary)
                             Spacer()
+                            Image(systemName: "chevron.right")
+                                .foregroundColor(.secondary)
+                                .font(.caption)
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 12)
+                        .background(Color(UIColor.secondarySystemBackground))
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                    
+                    // Emoji Theme Row
+                    Button(action: { 
+                        HapticsManager.shared.impact(.soft)
+                        onShowEmojiThemeSheet?()
+                    }) {
+                        HStack {
+                            Image(systemName: "face.smiling")
+                                .foregroundColor(.primary)
+                            Text("Emoji Theme")
+                                .appFont(selectedFont)
+                                .foregroundColor(.primary)
+                            Spacer()
+                            Text(emojiTheme.displayName)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
                             Image(systemName: "chevron.right")
                                 .foregroundColor(.secondary)
                                 .font(.caption)

@@ -50,6 +50,69 @@ enum FontOption: String, CaseIterable {
     }
 }
 
+enum EmojiTheme: String, CaseIterable {
+    case none = "none"
+    case celebration = "celebration"
+    case nature = "nature"
+    case space = "space"
+    case zen = "zen"
+    case energy = "energy"
+    case ocean = "ocean"
+    case cute = "cute"
+    
+    var displayName: String {
+        switch self {
+        case .none: return "None"
+        case .celebration: return "🎉 Party"
+        case .nature: return "🌿 Nature"
+        case .space: return "🚀 Space"
+        case .zen: return "🧘 Zen"
+        case .energy: return "⚡ Energy"
+        case .ocean: return "🌊 Ocean"
+        case .cute: return "🐻 Cute"
+        }
+    }
+    
+    var emojis: [String] {
+        switch self {
+        case .none: return []
+        case .celebration: return ["🎉", "🎊", "🎈", "🎆", "✨", "🎪", "🎭", "🎨"]
+        case .nature: return ["🌿", "🌱", "🌸", "🌺", "🌻", "🌳", "🍃", "🦋"]
+        case .space: return ["🚀", "⭐", "🌟", "💫", "🌙", "🪐", "🛸", "☄️"]
+        case .zen: return ["🧘", "☮️", "☯️", "🕉️", "💆", "🍃", "🌸", "🏮"]
+        case .energy: return ["⚡", "💥", "🔥", "💪", "🏃", "🚴", "⛷️", "🏂"]
+        case .ocean: return ["🌊", "🐚", "🐠", "🐟", "🐡", "🦈", "🐙", "🏝️"]
+        case .cute: return ["🐻", "🐰", "🐨", "🦄", "🐱", "🐶", "🦊", "🐼"]
+        }
+    }
+    
+    var completionEmoji: String {
+        switch self {
+        case .none: return "✓"
+        case .celebration: return "🎉"
+        case .nature: return "🌸"
+        case .space: return "⭐"
+        case .zen: return "🧘"
+        case .energy: return "⚡"
+        case .ocean: return "🌊"
+        case .cute: return "💖"
+        }
+    }
+    
+    var backgroundColor: Color {
+        switch self {
+        case .none: return Color(UIColor.systemBackground)
+        case .celebration: return Color(red: 1.0, green: 0.98, blue: 0.95)
+        case .nature: return Color(red: 0.95, green: 0.98, blue: 0.95)
+        case .space: return Color(red: 0.05, green: 0.05, blue: 0.15)
+        case .zen: return Color(red: 0.98, green: 0.97, blue: 0.96)
+        case .energy: return Color(red: 0.98, green: 0.95, blue: 0.90)
+        case .ocean: return Color(red: 0.90, green: 0.95, blue: 0.98)
+        case .cute: return Color(red: 1.0, green: 0.96, blue: 0.98)
+        }
+    }
+}
+
 class HapticsManager {
     static let shared = HapticsManager()
     
@@ -73,6 +136,7 @@ struct KippedApp: App {
     @State private var notificationsEnabled: Bool = true
     @State private var hapticsEnabled: Bool = KippedApp.loadHapticsEnabled()
     @State private var selectedFont: FontOption = KippedApp.loadFont()
+    @State private var emojiTheme: EmojiTheme = KippedApp.loadEmojiTheme()
 
     private var colorScheme: ColorScheme? {
         switch appTheme {
@@ -92,7 +156,7 @@ struct KippedApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView(appTheme: $appTheme, accentColor: $accentColor, notificationsEnabled: $notificationsEnabled, hapticsEnabled: $hapticsEnabled, selectedFont: $selectedFont)
+            ContentView(appTheme: $appTheme, accentColor: $accentColor, notificationsEnabled: $notificationsEnabled, hapticsEnabled: $hapticsEnabled, selectedFont: $selectedFont, emojiTheme: $emojiTheme)
                 .preferredColorScheme(colorScheme)
                 .accentColor(accentColor)
                 .onChange(of: appTheme) { newTheme in
@@ -107,6 +171,9 @@ struct KippedApp: App {
                 .onChange(of: selectedFont) { newFont in
                     KippedApp.saveFont(newFont)
                 }
+                .onChange(of: emojiTheme) { newTheme in
+                    KippedApp.saveEmojiTheme(newTheme)
+                }
         }
     }
 
@@ -115,6 +182,7 @@ struct KippedApp: App {
     private static let accentColorKey = "accent_color"
     private static let hapticsEnabledKey = "haptics_enabled"
     private static let fontKey = "selected_font"
+    private static let emojiThemeKey = "emoji_theme"
 
     static func saveTheme(_ theme: AppTheme) {
         UserDefaults.standard.set(theme.rawValue, forKey: themeKey)
@@ -207,5 +275,16 @@ struct KippedApp: App {
             return font
         }
         return .system
+    }
+    
+    static func saveEmojiTheme(_ theme: EmojiTheme) {
+        UserDefaults.standard.set(theme.rawValue, forKey: emojiThemeKey)
+    }
+    
+    static func loadEmojiTheme() -> EmojiTheme {
+        if let raw = UserDefaults.standard.string(forKey: emojiThemeKey), let theme = EmojiTheme(rawValue: raw) {
+            return theme
+        }
+        return .none
     }
 }
