@@ -14,6 +14,7 @@ class TodoViewModel: ObservableObject {
             saveTodos()
         }
     }
+    @Published var lastCreatedTodoId: UUID?
     
     private let todosKey = "todos_key"
 
@@ -24,6 +25,7 @@ class TodoViewModel: ObservableObject {
     func addTodo(title: String, reminderDate: Date? = nil) {
         let newTodo = Todo(title: title, reminderDate: reminderDate)
         todos.append(newTodo)
+        lastCreatedTodoId = newTodo.id
         scheduleNotification(for: newTodo)
     }
     

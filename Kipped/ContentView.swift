@@ -146,7 +146,8 @@ struct ContentView: View {
                                             selectedFont: selectedFont,
                                             accentColor: accentColor,
                                             tintedBackgrounds: tintedBackgrounds,
-                                            colorScheme: currentColorScheme
+                                            colorScheme: currentColorScheme,
+                                            isNewlyCreated: todoViewModel.lastCreatedTodoId == todo.id
                                         )
                                         .id(todo.id)
                                     }
@@ -406,6 +407,10 @@ struct TodoCardView: View {
     let accentColor: Color
     let tintedBackgrounds: Bool
     let colorScheme: ColorScheme?
+    let isNewlyCreated: Bool
+    @State private var isPressed = false
+    @State private var shimmerOffset: CGFloat = -100
+    @State private var isShimmerActive = false
 
     var body: some View {
         Button(action: onTap) {
@@ -415,6 +420,56 @@ struct TodoCardView: View {
                 .cornerRadius(16)
         }
         .buttonStyle(PlainButtonStyle())
+        .scaleEffect(isPressed ? 0.92 : 1.0)
+        .onLongPressGesture(minimumDuration: 0, maximumDistance: .infinity, pressing: { pressing in
+            withAnimation(.easeInOut(duration: 0.12)) {
+                isPressed = pressing
+            }
+        }, perform: {})
+        .overlay(
+            // Enhanced shimmer effect for newly created todos
+            Group {
+                if isNewlyCreated {
+                    GeometryReader { geometry in
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(
+                                LinearGradient(
+                                    gradient: Gradient(colors: [
+                                        Color.clear,
+                                        Color.white.opacity(0.2),
+                                        Color.white.opacity(0.5),
+                                        Color.white.opacity(0.9),
+                                        Color.white.opacity(0.5),
+                                        Color.white.opacity(0.2),
+                                        Color.clear
+                                    ]),
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            .frame(width: 120, height: geometry.size.height + 40)
+                            .rotationEffect(.degrees(15))
+                            .offset(x: shimmerOffset)
+                            .onAppear {
+                                isShimmerActive = true
+                                shimmerOffset = -100
+                                // Delay the shimmer start by 0.5 seconds after returning to homepage
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                                    withAnimation(.spring(response: 1.0, dampingFraction: 0.9, blendDuration: 0)) {
+                                        shimmerOffset = geometry.size.width + 100
+                                    }
+                                }
+                                // Clear the newly created status after shimmer completes
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                                    isShimmerActive = false
+                                    todoViewModel.lastCreatedTodoId = nil
+                                }
+                            }
+                    }
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+        )
         .contextMenu {
             Button(action: {
                 HapticsManager.shared.impact(.soft)
