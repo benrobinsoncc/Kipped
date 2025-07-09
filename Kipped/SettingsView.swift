@@ -86,7 +86,7 @@ struct SettingsView: View {
     @State private var showingAppIconSheet = false
     @State private var showingFontSheet = false
     
-    let accentColors: [(Color, String)] = MaterialColorCategory.allColors.map { ($0.color, $0.name) }
+    let accentColors: [(Color, String)] = MaterialColorCategory.allCategories.first?.colors.map { ($0.color, $0.name) } ?? []
     
     private var tintedBackground: Color {
         Color.tintedBackground(accentColor: accentColor, isEnabled: tintedBackgrounds, colorScheme: colorScheme)
@@ -97,226 +97,192 @@ struct SettingsView: View {
     }
     
     var body: some View {
-        NavigationView {
-            List {
-                Section("Customize") {
-                    Button(action: {
-                        HapticsManager.shared.impact(.soft)
-                        showingThemeSheet = true
-                    }) {
-                        HStack {
-                            Image(systemName: "paintbrush")
-                                .foregroundColor(colorScheme == .dark ? .white : .black)
-                            Text("Theme")
-                                .appFont(selectedFont)
-                                .foregroundColor(.primary)
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .foregroundColor(.secondary)
-                                .font(.caption)
-                        }
-                    }
-                    
-                    Button(action: {
-                        HapticsManager.shared.impact(.soft)
-                        showingAccentSheet = true
-                    }) {
-                        HStack {
-                            Image(systemName: "paintpalette")
-                                .foregroundColor(colorScheme == .dark ? .white : .black)
-                            Text("Accent Color")
-                                .appFont(selectedFont)
-                                .foregroundColor(.primary)
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .foregroundColor(.secondary)
-                                .font(.caption)
-                        }
-                    }
-                    
-                    Button(action: {
-                        HapticsManager.shared.impact(.soft)
-                        showingAppIconSheet = true
-                    }) {
-                        HStack {
-                            Image(systemName: "app.badge")
-                                .foregroundColor(colorScheme == .dark ? .white : .black)
-                            Text("App Icon")
-                                .appFont(selectedFont)
-                                .foregroundColor(.primary)
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .foregroundColor(.secondary)
-                                .font(.caption)
-                        }
-                    }
-                    
-                    Button(action: {
-                        HapticsManager.shared.impact(.soft)
-                        showingFontSheet = true
-                    }) {
-                        HStack {
-                            Image(systemName: "textformat")
-                                .foregroundColor(colorScheme == .dark ? .white : .black)
-                            Text("Font")
-                                .appFont(selectedFont)
-                                .foregroundColor(.primary)
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .foregroundColor(.secondary)
-                                .font(.caption)
-                        }
-                    }
-                }
-                
-                Section("Configure") {
-                    HStack {
-                        Text("Notifications")
-                            .appFont(selectedFont)
-                            .foregroundColor(.primary)
-                        Spacer()
-                        SkeuomorphicToggle(isOn: $notificationsEnabled, accentColor: accentColor, onToggle: handleNotificationsToggle)
-                    }
-                    
-                    HStack {
-                        Text("Haptics")
-                            .appFont(selectedFont)
-                            .foregroundColor(.primary)
-                        Spacer()
-                        SkeuomorphicToggle(isOn: $hapticsEnabled, accentColor: accentColor, isHapticsToggle: true)
-                    }
-                    
-                    HStack {
-                        Text("Tinted Backgrounds")
-                            .appFont(selectedFont)
-                            .foregroundColor(.primary)
-                        Spacer()
-                        SkeuomorphicToggle(isOn: $tintedBackgrounds, accentColor: accentColor)
-                    }
-                }
-                
-                Section("Archived Todos") {
-                    if todoViewModel.archivedTodos.isEmpty {
-                        Text("No archived todos yet")
-                            .appFont(selectedFont)
-                            .foregroundColor(.secondary)
-                    } else {
-                        ForEach(todoViewModel.archivedTodos) { todo in
-                            Button(action: { selectedArchivedTodo = todo }) {
-                                Text(todo.title)
+        ZStack {
+            tintedBackground
+                .ignoresSafeArea()
+            
+            NavigationView {
+                List {
+                    Section("Customize") {
+                        Button(action: {
+                            HapticsManager.shared.impact(.soft)
+                            showingThemeSheet = true
+                        }) {
+                            HStack {
+                                Image(systemName: "paintbrush")
+                                    .foregroundColor(colorScheme == .dark ? .white : .black)
+                                Text("Theme")
                                     .appFont(selectedFont)
                                     .foregroundColor(.primary)
-                                    .lineLimit(1)
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .foregroundColor(.secondary)
+                                    .font(.caption)
                             }
-                            .contextMenu {
-                                Button(action: {
-                                    HapticsManager.shared.impact(.soft)
-                                    UIPasteboard.general.string = todo.title
-                                }) {
-                                    Text("Copy")
+                        }
+                        .listRowBackground(tintedSecondaryBackground)
+                        
+                        Button(action: {
+                            HapticsManager.shared.impact(.soft)
+                            showingAccentSheet = true
+                        }) {
+                            HStack {
+                                Image(systemName: "paintpalette")
+                                    .foregroundColor(colorScheme == .dark ? .white : .black)
+                                Text("Accent Color")
+                                    .appFont(selectedFont)
+                                    .foregroundColor(.primary)
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .foregroundColor(.secondary)
+                                    .font(.caption)
+                            }
+                        }
+                        .listRowBackground(tintedSecondaryBackground)
+                        
+                        Button(action: {
+                            HapticsManager.shared.impact(.soft)
+                            showingAppIconSheet = true
+                        }) {
+                            HStack {
+                                Image(systemName: "app.badge")
+                                    .foregroundColor(colorScheme == .dark ? .white : .black)
+                                Text("App Icon")
+                                    .appFont(selectedFont)
+                                    .foregroundColor(.primary)
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .foregroundColor(.secondary)
+                                    .font(.caption)
+                            }
+                        }
+                        .listRowBackground(tintedSecondaryBackground)
+                        
+                        Button(action: {
+                            HapticsManager.shared.impact(.soft)
+                            showingFontSheet = true
+                        }) {
+                            HStack {
+                                Image(systemName: "textformat")
+                                    .foregroundColor(colorScheme == .dark ? .white : .black)
+                                Text("Font")
+                                    .appFont(selectedFont)
+                                    .foregroundColor(.primary)
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .foregroundColor(.secondary)
+                                    .font(.caption)
+                            }
+                        }
+                        .listRowBackground(tintedSecondaryBackground)
+                    }
+                    
+                    Section("Configure") {
+                        HStack {
+                            Text("Notifications")
+                                .appFont(selectedFont)
+                                .foregroundColor(.primary)
+                            Spacer()
+                            SkeuomorphicToggle(isOn: $notificationsEnabled, accentColor: accentColor, onToggle: handleNotificationsToggle)
+                        }
+                        .listRowBackground(tintedSecondaryBackground)
+                        
+                        HStack {
+                            Text("Haptics")
+                                .appFont(selectedFont)
+                                .foregroundColor(.primary)
+                            Spacer()
+                            SkeuomorphicToggle(isOn: $hapticsEnabled, accentColor: accentColor, isHapticsToggle: true)
+                        }
+                        .listRowBackground(tintedSecondaryBackground)
+                    }
+                    
+                    Section("Archived Todos") {
+                        if todoViewModel.archivedTodos.isEmpty {
+                            Text("No archived todos yet")
+                                .appFont(selectedFont)
+                                .foregroundColor(.secondary)
+                                .listRowBackground(tintedSecondaryBackground)
+                        } else {
+                            ForEach(todoViewModel.archivedTodos) { todo in
+                                Button(action: { selectedArchivedTodo = todo }) {
+                                    Text(todo.title)
+                                        .appFont(selectedFont)
+                                        .foregroundColor(.primary)
+                                        .lineLimit(1)
                                 }
+                                .contextMenu {
+                                    Button(action: {
+                                        HapticsManager.shared.impact(.soft)
+                                        UIPasteboard.general.string = todo.title
+                                    }) {
+                                        Text("Copy")
+                                    }
+                                }
+                                .listRowBackground(tintedSecondaryBackground)
                             }
                         }
                     }
                 }
+                .scrollContentBackground(.hidden)
+                .navigationTitle("Settings")
+                .navigationBarTitleDisplayMode(.inline)
             }
-            .navigationTitle("Settings")
-            .navigationBarTitleDisplayMode(.inline)
+            
+            
         }
-        .overlay(
-            Group {
-                if showingThemeSheet {
-                    ZStack {
-                        Color.black.opacity(0.3)
-                            .ignoresSafeArea()
-                            .onTapGesture {
-                                showingThemeSheet = false
-                            }
-                        
-                        ThemePickerOverlay(
-                            isPresented: $showingThemeSheet,
-                            appTheme: $appTheme,
-                            onThemeSelected: { theme in
-                                appTheme = theme
-                            }
-                        )
-                        .scaleEffect(0.9)
-                        .padding(.horizontal, 20)
-                    }
-                    .transition(.opacity)
-                }
-                
-                if showingAccentSheet {
-                    ZStack {
-                        Color.black.opacity(0.3)
-                            .ignoresSafeArea()
-                            .onTapGesture {
-                                showingAccentSheet = false
-                            }
-                        
-                        AccentColorPickerOverlay(
-                            isPresented: $showingAccentSheet,
-                            accentColor: $accentColor,
-                            colors: accentColors,
-                            onColorSelected: { color in
-                                accentColor = color
-                            },
-                            tintedBackgrounds: tintedBackgrounds,
-                            currentColorScheme: colorScheme
-                        )
-                        .scaleEffect(0.9)
-                        .padding(.horizontal, 20)
-                    }
-                    .transition(.opacity)
-                }
-                
-                if showingAppIconSheet {
-                    ZStack {
-                        Color.black.opacity(0.3)
-                            .ignoresSafeArea()
-                            .onTapGesture {
-                                showingAppIconSheet = false
-                            }
-                        
-                        AppIconSelectionOverlay(
-                            isPresented: $showingAppIconSheet,
-                            selectedAppIcon: $selectedAppIcon,
-                            onIconSelected: { icon in
-                                selectedAppIcon = icon
-                            }
-                        )
-                        .scaleEffect(0.9)
-                        .padding(.horizontal, 20)
-                    }
-                    .transition(.opacity)
-                }
-                
-                if showingFontSheet {
-                    ZStack {
-                        Color.black.opacity(0.3)
-                            .ignoresSafeArea()
-                            .onTapGesture {
-                                showingFontSheet = false
-                            }
-                        
-                        FontPickerOverlay(
-                            isPresented: $showingFontSheet,
-                            selectedFont: $selectedFont,
-                            onFontSelected: { font in
-                                selectedFont = font
-                            }
-                        )
-                        .scaleEffect(0.9)
-                        .padding(.horizontal, 20)
-                    }
-                    .transition(.opacity)
-                }
-            }
-            .animation(.easeInOut(duration: 0.2), value: showingThemeSheet)
-            .animation(.easeInOut(duration: 0.2), value: showingAccentSheet)
-            .animation(.easeInOut(duration: 0.2), value: showingAppIconSheet)
-            .animation(.easeInOut(duration: 0.2), value: showingFontSheet)
-        )
+        .sheet(isPresented: $showingThemeSheet) {
+            ThemePickerContent(
+                appTheme: $appTheme,
+                onThemeSelected: { theme in
+                    appTheme = theme
+                },
+                accentColor: accentColor,
+                tintedBackgrounds: tintedBackgrounds,
+                currentColorScheme: colorScheme
+            )
+            .presentationDetents([.fraction(0.20)])
+            .presentationDragIndicator(.hidden)
+        }
+        .sheet(isPresented: $showingAccentSheet) {
+            AccentColorPickerContent(
+                accentColor: $accentColor,
+                tintedBackgrounds: $tintedBackgrounds,
+                colors: accentColors,
+                onColorSelected: { color in
+                    accentColor = color
+                },
+                currentColorScheme: colorScheme
+            )
+            .presentationDetents([.fraction(0.60)])
+            .presentationDragIndicator(.hidden)
+        }
+        .sheet(isPresented: $showingAppIconSheet) {
+            AppIconSelectionContent(
+                selectedAppIcon: $selectedAppIcon,
+                onIconSelected: { icon in
+                    selectedAppIcon = icon
+                },
+                accentColor: accentColor,
+                tintedBackgrounds: tintedBackgrounds,
+                currentColorScheme: colorScheme
+            )
+            .presentationDetents([.fraction(0.50)])
+            .presentationDragIndicator(.hidden)
+        }
+        .sheet(isPresented: $showingFontSheet) {
+            FontPickerContent(
+                selectedFont: $selectedFont,
+                onFontSelected: { font in
+                    selectedFont = font
+                },
+                accentColor: accentColor,
+                tintedBackgrounds: tintedBackgrounds,
+                currentColorScheme: colorScheme
+            )
+            .presentationDetents([.fraction(0.25)])
+            .presentationDragIndicator(.hidden)
+        }
         .sheet(item: $selectedArchivedTodo) { todo in
             AddTodoView(todoViewModel: todoViewModel, todoToEdit: todo, colorScheme: .constant(colorScheme ?? .dark), accentColor: $accentColor, selectedFont: $selectedFont, isArchivedMode: true) {
                 todoViewModel.unarchiveTodo(todo)

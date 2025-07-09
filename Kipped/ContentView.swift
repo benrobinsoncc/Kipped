@@ -199,6 +199,9 @@ struct ContentView: View {
             .onAppear {
                 syncAppIconOnLaunch()
             }
+            .onChange(of: selectedAppIcon) { newIcon in
+                changeAppIcon(to: newIcon)
+            }
         }
         .simultaneousGesture(
             DragGesture(minimumDistance: 0)
@@ -714,10 +717,8 @@ struct SkeuomorphicColorButton: View {
                             .stroke(Color.white, lineWidth: isSelected ? 3 : 0)
                             .frame(width: buttonSize + 6, height: buttonSize + 6)
                             .shadow(color: .black.opacity(isSelected ? 0.3 : 0), radius: 2)
-                            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isSelected)
                     )
                     .scaleEffect(isPressed ? 0.92 : 1.0)
-                    .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isPressed)
             }
         }
         .buttonStyle(PlainButtonStyle())
@@ -736,7 +737,7 @@ struct MaterialColorButton: View {
     @State private var isPressed = false
     @Environment(\.colorScheme) var colorScheme
     
-    private var buttonSize: CGFloat { 64 }
+    private var buttonSize: CGFloat { 72 }
     
     private var brightColor: Color {
         let uiColor = UIColor(colorInfo.color)
@@ -1239,10 +1240,8 @@ struct MaterialColorButton: View {
                             .stroke(Color.white, lineWidth: isSelected ? 3 : 0)
                             .frame(width: buttonSize + 6, height: buttonSize + 6)
                             .shadow(color: .black.opacity(isSelected ? 0.3 : 0), radius: 2)
-                            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isSelected)
                     )
                     .scaleEffect(isPressed ? 0.92 : 1.0)
-                    .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isPressed)
             }
         }
         .buttonStyle(PlainButtonStyle())
@@ -1262,7 +1261,7 @@ struct SkeuomorphicThemeButton: View {
     @Environment(\.colorScheme) var colorScheme
     @State private var isPressed = false
     
-    private let buttonSize: CGFloat = 68
+    private let buttonSize: CGFloat = 72
     
     private var themeColor: Color {
         switch theme {
@@ -1379,10 +1378,8 @@ struct SkeuomorphicThemeButton: View {
                             .stroke(Color.white, lineWidth: isSelected ? 3 : 0)
                             .frame(width: buttonSize + 6, height: buttonSize + 6)
                             .shadow(color: .black.opacity(isSelected ? 0.3 : 0), radius: 2)
-                            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isSelected)
                     )
                     .scaleEffect(isPressed ? 0.92 : 1.0)
-                    .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isPressed)
             }
         }
         .buttonStyle(PlainButtonStyle())
@@ -1394,17 +1391,72 @@ struct SkeuomorphicThemeButton: View {
     }
 }
 
-struct AccentColorPickerOverlay: View {
+// Lightweight bottom sheet component
+struct LightweightBottomSheet<Content: View>: View {
     @Binding var isPresented: Bool
+    @ViewBuilder let content: Content
+    @State private var sheetOffset: CGFloat = 400
+    
+    var body: some View {
+        ZStack {
+            // Background overlay - separate fade animation
+            Color.black.opacity(isPresented ? 0.3 : 0)
+                .ignoresSafeArea()
+                .onTapGesture {
+                    isPresented = false
+                }
+                .animation(.easeInOut(duration: 0.3), value: isPresented)
+            
+            // Sheet container - slides as ONE UNIT
+            VStack {
+                Spacer()
+                
+                // The ENTIRE sheet content moves together
+                VStack(spacing: 0) {
+                    // Handle bar
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(Color.secondary)
+                        .frame(width: 36, height: 4)
+                        .padding(.top, 12)
+                        .padding(.bottom, 8)
+                    
+                    // Content with NO internal animations
+                    content
+                        .animation(.none) // DISABLE all child animations
+                }
+                .background(Color(.systemBackground))
+                .cornerRadius(16, corners: [.topLeft, .topRight])
+                .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: -5)
+                .offset(y: sheetOffset) // Single animation point
+                .animation(.spring(response: 0.4, dampingFraction: 0.8), value: sheetOffset) // Only animate the offset
+            }
+        }
+        .onAppear {
+            sheetOffset = 0
+        }
+        .onChange(of: isPresented) { newValue in
+            sheetOffset = newValue ? 0 : 400
+        }
+    }
+}
+
+// Extension for corner radius
+extension View {
+    func cornerRadius(_ radius: CGFloat, corners: UIRectCorner) -> some View {
+        clipShape(RoundedCorner(radius: radius, corners: corners))
+    }
+}
+
+// Content views
+struct AccentColorPickerContent: View {
     @Binding var accentColor: Color
+    @Binding var tintedBackgrounds: Bool
     let colors: [(Color, String)]
     let onColorSelected: (Color) -> Void
-    let tintedBackgrounds: Bool
     let currentColorScheme: ColorScheme?
     @Environment(\.colorScheme) var colorScheme
     
     func isColorSelected(_ color1: Color, _ color2: Color) -> Bool {
-        // Convert to UIColor for comparison
         let uiColor1 = UIColor(color1)
         let uiColor2 = UIColor(color2)
         
@@ -1414,209 +1466,227 @@ struct AccentColorPickerOverlay: View {
         uiColor1.getRed(&r1, green: &g1, blue: &b1, alpha: &a1)
         uiColor2.getRed(&r2, green: &g2, blue: &b2, alpha: &a2)
         
-        // Use Euclidean distance for more accurate color matching
         let distance = sqrt(pow(r1 - r2, 2) + pow(g1 - g2, 2) + pow(b1 - b2, 2))
         return distance < 0.1
     }
     
     var body: some View {
-        ZStack {
-            Color.clear
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    isPresented = false
-                }
-            
-            VStack(spacing: 0) {
-                Spacer()
-                
-                VStack(spacing: 20) {
-                    
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: 6) {
-                        ForEach(MaterialColorCategory.allCategories.first?.colors ?? [], id: \.name) { colorInfo in
-                            MaterialColorButton(
-                                colorInfo: colorInfo,
-                                isSelected: isColorSelected(accentColor, colorInfo.color),
-                                action: {
-                                    HapticsManager.shared.impact(.soft)
-                                    accentColor = colorInfo.color
-                                    onColorSelected(colorInfo.color)
-                                    // Don't dismiss - let user continue selecting
-                                }
-                            )
-                            .frame(width: 75, height: 75)
+        // NO ANIMATIONS IN CONTENT - just static layout
+        VStack(spacing: 12) {
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: -4), count: 4), spacing: 20) {
+                ForEach(MaterialColorCategory.allCategories.first?.colors ?? [], id: \.name) { colorInfo in
+                    MaterialColorButton(
+                        colorInfo: colorInfo,
+                        isSelected: isColorSelected(accentColor, colorInfo.color),
+                        action: {
+                            HapticsManager.shared.impact(.soft)
+                            accentColor = colorInfo.color
+                            onColorSelected(colorInfo.color)
                         }
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 40)
+                    )
+                    .frame(width: 72, height: 72)
                 }
-                .background(Color.clear)
-                .padding(.horizontal, 20)
-                .padding(.bottom, 50)
             }
+            .padding(.horizontal, 20)
+            
+            // Tinted Backgrounds Toggle
+            List {
+                HStack {
+                    Text("Tinted Backgrounds")
+                        .foregroundColor(.primary)
+                    Spacer()
+                    SkeuomorphicToggle(isOn: $tintedBackgrounds, accentColor: accentColor)
+                }
+                .listRowBackground(Color.tintedSecondaryBackground(accentColor: accentColor, isEnabled: tintedBackgrounds, colorScheme: currentColorScheme))
+            }
+            .listStyle(InsetGroupedListStyle())
+            .frame(height: 80)
+            .scrollContentBackground(.hidden)
+            .background(Color.clear)
         }
+        .padding(.top, 20)
+        .padding(.bottom, 40)
+        // NO ANIMATION MODIFIERS HERE
     }
 }
 
-struct AppIconSelectionOverlay: View {
-    @Binding var isPresented: Bool
+struct AppIconSelectionContent: View {
     @Binding var selectedAppIcon: AppIconOption
     let onIconSelected: (AppIconOption) -> Void
+    let accentColor: Color
+    let tintedBackgrounds: Bool
+    let currentColorScheme: ColorScheme?
     @Environment(\.colorScheme) var colorScheme
     @State private var pressedOption: AppIconOption? = nil
     
     var body: some View {
-        ZStack {
-            Color.clear
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    isPresented = false
-                }
-            
-            VStack(spacing: 0) {
-                Spacer()
-                
-                VStack(spacing: 20) {
-                    
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3), spacing: 10) {
-                        ForEach(AppIconOption.allCases, id: \.self) { option in
-                            Button(action: {
-                                HapticsManager.shared.impact(.soft)
-                                selectedAppIcon = option
-                                onIconSelected(option)
-                            }) {
-                                ZStack {
-                                    Image(option.imagePreviewName)
-                                        .resizable()
-                                        .aspectRatio(contentMode: .fit)
-                                        .frame(width: 88, height: 88)
-                                        .clipShape(RoundedRectangle(cornerRadius: 20))
-                                        .shadow(color: .black.opacity(0.3), radius: 12, x: 0, y: 6)
-                                        .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
-                                        .overlay(
-                                            // Selection indicator
-                                            RoundedRectangle(cornerRadius: 23)
-                                                .stroke(Color.white, lineWidth: selectedAppIcon == option ? 3 : 0)
-                                                .frame(width: 94, height: 94)
-                                                .shadow(color: .black.opacity(selectedAppIcon == option ? 0.3 : 0), radius: 2)
-                                                .animation(.spring(response: 0.3, dampingFraction: 0.6), value: selectedAppIcon == option)
-                                        )
-                                        .scaleEffect(pressedOption == option ? 0.92 : 1.0)
-                                        .animation(.spring(response: 0.3, dampingFraction: 0.6), value: pressedOption == option)
-                                }
-                                .frame(width: 98, height: 98)
-                            }
-                            .buttonStyle(PlainButtonStyle())
-                            .onLongPressGesture(minimumDuration: 0, maximumDistance: .infinity, pressing: { pressing in
-                                withAnimation(.easeInOut(duration: 0.12)) {
-                                    pressedOption = pressing ? option : nil
-                                }
-                            }, perform: {})
+        VStack(spacing: 20) {
+            VStack(spacing: 12) {
+                HStack(spacing: 16) {
+                    ForEach(Array(AppIconOption.allCases.prefix(3)), id: \.self) { option in
+                    Button(action: {
+                        HapticsManager.shared.impact(.soft)
+                        selectedAppIcon = option
+                        onIconSelected(option)
+                    }) {
+                        ZStack {
+                            Image(option.imagePreviewName)
+                                .resizable()
+                                .aspectRatio(contentMode: .fit)
+                                .frame(width: 88, height: 88)
+                                .clipShape(RoundedRectangle(cornerRadius: 20))
+                                .shadow(color: .black.opacity(0.2), radius: 6, x: 0, y: 3)
+                                .overlay(
+                                    // Selection indicator
+                                    RoundedRectangle(cornerRadius: 22)
+                                        .stroke(accentColor, lineWidth: selectedAppIcon == option ? 3 : 0)
+                                        .frame(width: 94, height: 94)
+                                )
+                                .scaleEffect(pressedOption == option ? 0.92 : 1.0)
                         }
+                        .frame(width: 92, height: 98)
                     }
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 40)
+                    .buttonStyle(PlainButtonStyle())
+                    .onLongPressGesture(minimumDuration: 0, maximumDistance: .infinity, pressing: { pressing in
+                        withAnimation(.easeInOut(duration: 0.12)) {
+                            pressedOption = pressing ? option : nil
+                        }
+                    }, perform: {})
+                    }
                 }
-                .background(Color.clear)
-                .padding(.horizontal, 20)
-                .padding(.bottom, 50)
+                
+                HStack(spacing: 16) {
+                    ForEach(Array(AppIconOption.allCases.dropFirst(3).prefix(3)), id: \.self) { option in
+                        Button(action: {
+                            HapticsManager.shared.impact(.soft)
+                            selectedAppIcon = option
+                            onIconSelected(option)
+                        }) {
+                            ZStack {
+                                Image(option.imagePreviewName)
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fit)
+                                    .frame(width: 88, height: 88)
+                                    .clipShape(RoundedRectangle(cornerRadius: 20))
+                                    .shadow(color: .black.opacity(0.2), radius: 6, x: 0, y: 3)
+                                    .overlay(
+                                        // Selection indicator
+                                        RoundedRectangle(cornerRadius: 22)
+                                            .stroke(accentColor, lineWidth: selectedAppIcon == option ? 3 : 0)
+                                            .frame(width: 94, height: 94)
+                                    )
+                                    .scaleEffect(pressedOption == option ? 0.92 : 1.0)
+                            }
+                            .frame(width: 92, height: 98)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                        .onLongPressGesture(minimumDuration: 0, maximumDistance: .infinity, pressing: { pressing in
+                            withAnimation(.easeInOut(duration: 0.12)) {
+                                pressedOption = pressing ? option : nil
+                            }
+                        }, perform: {})
+                    }
+                }
+                
+                HStack(spacing: 16) {
+                    ForEach(Array(AppIconOption.allCases.dropFirst(6)), id: \.self) { option in
+                        Button(action: {
+                            HapticsManager.shared.impact(.soft)
+                            selectedAppIcon = option
+                            onIconSelected(option)
+                        }) {
+                            ZStack {
+                                Image(option.imagePreviewName)
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fit)
+                                    .frame(width: 88, height: 88)
+                                    .clipShape(RoundedRectangle(cornerRadius: 20))
+                                    .shadow(color: .black.opacity(0.2), radius: 6, x: 0, y: 3)
+                                    .overlay(
+                                        // Selection indicator
+                                        RoundedRectangle(cornerRadius: 22)
+                                            .stroke(accentColor, lineWidth: selectedAppIcon == option ? 3 : 0)
+                                            .frame(width: 94, height: 94)
+                                    )
+                                    .scaleEffect(pressedOption == option ? 0.92 : 1.0)
+                            }
+                            .frame(width: 92, height: 98)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                        .onLongPressGesture(minimumDuration: 0, maximumDistance: .infinity, pressing: { pressing in
+                            withAnimation(.easeInOut(duration: 0.12)) {
+                                pressedOption = pressing ? option : nil
+                            }
+                        }, perform: {})
+                    }
+                }
             }
+            .padding(.horizontal, 8)
         }
+        .padding(.top, 20)
+        .padding(.bottom, 30)
     }
 }
 
-struct ThemePickerOverlay: View {
-    @Binding var isPresented: Bool
+struct ThemePickerContent: View {
     @Binding var appTheme: AppTheme
     let onThemeSelected: (AppTheme) -> Void
-    
-    func themeColor(for theme: AppTheme) -> Color {
-        switch theme {
-        case .system:
-            return Color.gray
-        case .light:
-            return Color.white
-        case .dark:
-            return Color.black
-        }
-    }
+    let accentColor: Color
+    let tintedBackgrounds: Bool
+    let currentColorScheme: ColorScheme?
     
     var body: some View {
-        ZStack {
-            Color.clear
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    isPresented = false
-                }
-            
-            VStack(spacing: 0) {
+        VStack {
+            Spacer()
+            HStack {
                 Spacer()
-                
-                VStack(spacing: 20) {
-                    
-                    HStack(spacing: 20) {
-                        ForEach(AppTheme.allCases, id: \.self) { theme in
-                            SkeuomorphicThemeButton(
-                                theme: theme,
-                                isSelected: appTheme == theme,
-                                action: {
-                                    HapticsManager.shared.impact(.soft)
-                                    appTheme = theme
-                                    onThemeSelected(theme)
-                                }
-                            )
-                        }
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: -4), count: 4), spacing: 20) {
+                    ForEach(AppTheme.allCases, id: \.self) { theme in
+                        SkeuomorphicThemeButton(
+                            theme: theme,
+                            isSelected: appTheme == theme,
+                            action: {
+                                HapticsManager.shared.impact(.soft)
+                                appTheme = theme
+                                onThemeSelected(theme)
+                            }
+                        )
                     }
-                    .padding(.horizontal, 40)
-                    .padding(.bottom, 40)
                 }
-                .background(Color.clear)
-                .padding(.horizontal, 20)
-                .padding(.bottom, 50)
+                Spacer()
             }
+            .padding(.horizontal, 20)
+            Spacer()
         }
     }
 }
 
-struct FontPickerOverlay: View {
-    @Binding var isPresented: Bool
+struct FontPickerContent: View {
     @Binding var selectedFont: FontOption
     let onFontSelected: (FontOption) -> Void
+    let accentColor: Color
+    let tintedBackgrounds: Bool
+    let currentColorScheme: ColorScheme?
     
     var body: some View {
-        ZStack {
-            Color.clear
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    isPresented = false
-                }
-            
-            VStack(spacing: 0) {
-                Spacer()
-                
-                VStack(spacing: 20) {
-                    
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3), spacing: 20) {
-                        ForEach(FontOption.allCases, id: \.self) { font in
-                            SkeuomorphicFontButton(
-                                font: font,
-                                isSelected: selectedFont == font,
-                                action: {
-                                    HapticsManager.shared.impact(.soft)
-                                    selectedFont = font
-                                    onFontSelected(font)
-                                }
-                            )
+        VStack(spacing: 20) {
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: -4), count: 3), spacing: 20) {
+                ForEach(FontOption.allCases, id: \.self) { font in
+                    SkeuomorphicFontButton(
+                        font: font,
+                        isSelected: selectedFont == font,
+                        action: {
+                            HapticsManager.shared.impact(.soft)
+                            selectedFont = font
+                            onFontSelected(font)
                         }
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 40)
+                    )
                 }
-                .background(Color.clear)
-                .padding(.horizontal, 20)
-                .padding(.bottom, 50)
             }
+            .padding(.horizontal, 20)
         }
+        .padding(.top, 20)
+        .padding(.bottom, 30)
     }
 }
 
@@ -1789,10 +1859,8 @@ struct SkeuomorphicFontButton: View {
                             .stroke(Color.white, lineWidth: isSelected ? 3 : 0)
                             .frame(width: buttonWidth + 6, height: buttonHeight + 6)
                             .shadow(color: .black.opacity(isSelected ? 0.3 : 0), radius: 2)
-                            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isSelected)
                     )
                     .scaleEffect(isPressed ? 0.95 : 1.0)
-                    .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isPressed)
                 
                 Text(font.displayName)
                     .font(font.font)
@@ -1927,7 +1995,6 @@ struct SkeuomorphicCreateButton: View {
                     .shadow(color: .black.opacity(0.3), radius: 12, x: 0, y: 6)
                     .shadow(color: accentColor.opacity(0.3), radius: 8, x: 0, y: 4)
                     .scaleEffect(isPressed ? 0.92 : 1.0)
-                    .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isPressed)
                 
                 // Plus icon
                 Image(systemName: "plus")
@@ -1935,7 +2002,6 @@ struct SkeuomorphicCreateButton: View {
                     .fontWeight(.semibold)
                     .foregroundColor(.white)
                     .scaleEffect(isPressed ? 0.85 : 1.0)
-                    .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isPressed)
             }
         }
         .buttonStyle(PlainButtonStyle())
@@ -2082,8 +2148,3 @@ struct ParticleView: View {
 }
 
 
-/*
-#Preview {
-    ContentView(appTheme: .constant(.dark), accentColor: .constant(.accentColor), notificationsEnabled: .constant(true), hapticsEnabled: .constant(true), selectedFont: .constant(.system), tintedBackgrounds: .constant(false))
-}
-*/
