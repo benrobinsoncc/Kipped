@@ -1,34 +1,18 @@
 # Claude Instructions for Kipped
 
-## 7 Claude Rules
+### Critical Rules - DO NOT VIOLATE
+- **NEVER create mock data or simplified components** unless explicitly told to do so
+- **NEVER replace existing complex components with simplified versions** - always fix the actual problem
+- **ALWAYS work with the existing codebase** - do not create new simplified alternatives
+- **ALWAYS find and fix the root cause** of issues instead of creating workarounds
+- When debugging issues, focus on fixing the existing implementation, not replacing it
+- When something doesn't work, debug and fix it - don't start over with a simple version
+- **ALWAYS check Apple's latest SwiftUI documentation** before making changes - APIs change between iOS versions
 
-1. **First think through the problem, read the codebase for relevant files, and write a plan to tasks/todo.md.**
-
-2. **The plan should have a list of todo items that you can check off as you complete them**
-
-3. **Before you begin working, check in with me and I will verify the plan.**
-
-4. **Then, begin working on the todo items, marking them as complete as you go.**
-
-5. **Please every step of the way just give me a high level explanation of what changes you made**
-
-6. **Make every task and code change you do as simple as possible. We want to avoid making any massive or complex changes. Every change should impact as little code as possible. Everything is about simplicity.**
-
-7. **Finally, add a review section to the todo.md file with a summary of the changes you made and any other relevant information.**
-
-## Project Overview
-
-Kipped is a SwiftUI-based iOS todo/notes app with features including:
-- Simple note-taking with todo items
-- Dark/light theme support
-- Customizable accent colors
-- Archive functionality
-- Notification support
-- Clean, modern UI
-
-## Key Files
-- `Todo.swift` - Data model
-- `TodoViewModel.swift` - Business logic
-- `ContentView.swift` - Main interface
-- `AddTodoView.swift` - Note creation/editing
-- `SettingsView.swift` - App customization
+### Swift and Xcode Validation
+- **ALWAYS use explicit types** where it improves clarity (though Swift's type inference is intentional)
+- **ALWAYS ensure Xcode shows no errors or warnings** before considering any code changes complete
+- Fix all compiler errors and warnings immediately - don't leave them for the user to fix
+- When making changes to multiple files, ensure each builds cleanly
+- **ALWAYS test on simulator/device** after changes - SwiftUI preview isn't enough
+- Check for runtime warnings in Xcode console (purple warnings about view updates, etc.)

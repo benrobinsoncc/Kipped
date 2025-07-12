@@ -34,7 +34,7 @@ enum AppIconOption: String, CaseIterable {
         case .option2: return "app.badge"
         case .option3: return "app.badge.fill"
         case .option4: return "app.badge.checkmark"
-        case .option5: return "app.badge.plus"
+        case .option5: return "plus.app"
         case .option6: return "app.dashed"
         case .option7: return "app.gift"
         case .option8: return "app.connected.to.line.below"
@@ -514,5 +514,156 @@ struct VisualEffectView: UIViewRepresentable {
     }
     func updateUIView(_ uiView: UIVisualEffectView, context: Context) {
         uiView.effect = effect
+    }
+}
+
+// MARK: - Picker Content Views
+
+struct ThemePickerContent: View {
+    @Binding var appTheme: AppTheme
+    let onThemeSelected: (AppTheme) -> Void
+    let accentColor: Color
+    let tintedBackgrounds: Bool
+    let currentColorScheme: ColorScheme?
+    
+    var body: some View {
+        VStack(spacing: 20) {
+            Text("Theme")
+                .font(.headline)
+                .padding()
+            
+            HStack(spacing: 20) {
+                ForEach(AppTheme.allCases, id: \.self) { theme in
+                    Button(action: {
+                        onThemeSelected(theme)
+                    }) {
+                        Text(theme.displayName)
+                            .padding()
+                            .background(appTheme == theme ? accentColor : Color.gray.opacity(0.3))
+                            .foregroundColor(appTheme == theme ? .white : .primary)
+                            .cornerRadius(8)
+                    }
+                }
+            }
+            .padding()
+        }
+    }
+}
+
+struct AccentColorPickerContent: View {
+    @Binding var accentColor: Color
+    @Binding var tintedBackgrounds: Bool
+    let colors: [(Color, String)]
+    let onColorSelected: (Color) -> Void
+    let currentColorScheme: ColorScheme?
+    
+    var body: some View {
+        VStack(spacing: 20) {
+            Text("Accent Color")
+                .font(.headline)
+                .padding()
+            
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: 16) {
+                ForEach(MaterialColorCategory.allCategories.first?.colors ?? [], id: \.name) { colorInfo in
+                    Button(action: {
+                        onColorSelected(colorInfo.color)
+                    }) {
+                        Circle()
+                            .fill(colorInfo.color)
+                            .frame(width: 60, height: 60)
+                            .overlay(
+                                Circle()
+                                    .stroke(Color.white, lineWidth: isColorSelected(colorInfo.color) ? 3 : 0)
+                            )
+                    }
+                }
+            }
+            .padding()
+        }
+    }
+    
+    private func isColorSelected(_ color: Color) -> Bool {
+        // Simple color comparison
+        return color == accentColor
+    }
+}
+
+struct AppIconSelectionContent: View {
+    @Binding var selectedAppIcon: AppIconOption
+    let onIconSelected: (AppIconOption) -> Void
+    let accentColor: Color
+    let tintedBackgrounds: Bool
+    let currentColorScheme: ColorScheme?
+    
+    var body: some View {
+        VStack(spacing: 20) {
+            Text("App Icon")
+                .font(.headline)
+                .padding()
+            
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3), spacing: 16) {
+                ForEach(AppIconOption.allCases, id: \.self) { option in
+                    Button(action: {
+                        onIconSelected(option)
+                    }) {
+                        VStack {
+                            Image(option.imagePreviewName)
+                                .resizable()
+                                .aspectRatio(contentMode: .fit)
+                                .frame(width: 60, height: 60)
+                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .stroke(selectedAppIcon == option ? accentColor : Color.clear, lineWidth: 3)
+                                )
+                            
+                            Text(option.displayName)
+                                .font(.caption)
+                                .foregroundColor(.primary)
+                        }
+                    }
+                }
+            }
+            .padding()
+        }
+    }
+}
+
+struct FontPickerContent: View {
+    @Binding var selectedFont: FontOption
+    let onFontSelected: (FontOption) -> Void
+    let accentColor: Color
+    let tintedBackgrounds: Bool
+    let currentColorScheme: ColorScheme?
+    
+    var body: some View {
+        VStack(spacing: 20) {
+            Text("Font")
+                .font(.headline)
+                .padding()
+            
+            VStack(spacing: 12) {
+                ForEach(FontOption.allCases, id: \.self) { font in
+                    Button(action: {
+                        onFontSelected(font)
+                    }) {
+                        HStack {
+                            Text(font.displayName)
+                                .font(font.font)
+                                .foregroundColor(.primary)
+                            Spacer()
+                            if selectedFont == font {
+                                Image(systemName: "checkmark")
+                                    .foregroundColor(accentColor)
+                            }
+                        }
+                        .padding()
+                        .background(selectedFont == font ? accentColor.opacity(0.1) : Color.clear)
+                        .cornerRadius(8)
+                    }
+                }
+            }
+            .padding()
+        }
     }
 } 
