@@ -194,15 +194,19 @@ struct ContentView: View {
                     }
                     .toolbar {
                         ToolbarItem(placement: .principal) {
-                            Button(action: { showingSettings = true }) {
-                                Image("AppLogoIcon")
-                                    .renderingMode(.template)
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fit)
-                                    .frame(width: 22, height: 22)
-                                    .foregroundColor(accentColor)
-                                    .materialStyle(accentColor: accentColor)
-                            }
+                            Image("AppLogoIcon")
+                                .renderingMode(.template)
+                                .resizable()
+                                .aspectRatio(contentMode: .fit)
+                                .frame(width: 22, height: 22)
+                                .foregroundColor(accentColor)
+                                .materialStyle(accentColor: accentColor)
+                                .highPriorityGesture(
+                                    TapGesture()
+                                        .onEnded {
+                                            showingSettings = true
+                                        }
+                                )
                         }
                     }
                 }
