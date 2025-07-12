@@ -59,7 +59,9 @@ struct YearView: View {
                             isToday: isCurrentDay,
                             isFuture: isFutureDay,
                             accentColor: accentColor,
-                            isHovered: hoveredDate == date
+                            isHovered: hoveredDate == date,
+                            tintedBackgrounds: tintedBackgrounds,
+                            colorScheme: colorScheme
                         )
                         .onTapGesture {
                             if !isFutureDay {
@@ -86,18 +88,31 @@ struct DayDotView: View {
     let isFuture: Bool
     let accentColor: Color
     let isHovered: Bool
+    let dotSize: CGFloat
+    let tintedBackgrounds: Bool
+    let colorScheme: ColorScheme?
     
     @State private var animateIn = false
     
+    init(date: Date, hasNote: Bool, isToday: Bool, isFuture: Bool, accentColor: Color, isHovered: Bool, dotSize: CGFloat = 16, tintedBackgrounds: Bool, colorScheme: ColorScheme?) {
+        self.date = date
+        self.hasNote = hasNote
+        self.isToday = isToday
+        self.isFuture = isFuture
+        self.accentColor = accentColor
+        self.isHovered = isHovered
+        self.dotSize = dotSize
+        self.tintedBackgrounds = tintedBackgrounds
+        self.colorScheme = colorScheme
+    }
+    
     private var dotColor: Color {
-        if isFuture {
-            return Color.secondary.opacity(0.2)
-        } else if hasNote {
+        if hasNote {
             return accentColor
         } else if isToday {
             return accentColor.opacity(0.3)
         } else {
-            return Color.secondary.opacity(0.3)
+            return Color.tintedSecondaryBackground(accentColor: accentColor, isEnabled: true, colorScheme: colorScheme)
         }
     }
     
@@ -105,21 +120,21 @@ struct DayDotView: View {
         ZStack {
             Circle()
                 .fill(dotColor)
-                .frame(width: 16, height: 16)
+                .frame(width: dotSize, height: dotSize)
                 .scaleEffect(animateIn ? 1 : 0.3)
                 .opacity(animateIn ? 1 : 0)
             
             if hasNote {
                 Image(systemName: "checkmark")
-                    .font(.system(size: 8, weight: .bold))
+                    .font(.system(size: max(dotSize * 0.5, 8), weight: .bold))
                     .foregroundColor(.white)
                     .scaleEffect(animateIn ? 1 : 0)
             }
             
             if isToday {
                 Circle()
-                    .stroke(accentColor, lineWidth: 2)
-                    .frame(width: 20, height: 20)
+                    .stroke(accentColor, lineWidth: max(dotSize * 0.125, 2))
+                    .frame(width: dotSize + 4, height: dotSize + 4)
             }
         }
         .scaleEffect(isHovered ? 1.3 : 1.0)

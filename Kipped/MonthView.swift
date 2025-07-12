@@ -16,7 +16,6 @@ struct MonthView: View {
     let tintedBackgrounds: Bool
     let colorScheme: ColorScheme?
     
-    private let dotSize: CGFloat = 16
     private let spacing: CGFloat = 6
     
     private var monthDates: [Date] {
@@ -35,15 +34,36 @@ struct MonthView: View {
     }
     
     
+    private func calculateOptimalLayout(availableWidth: CGFloat, availableHeight: CGFloat) -> (dotSize: CGFloat, dotsPerRow: Int) {
+        let minDotsPerRow = 7 // Minimum for week layout
+        let maxDotsPerRow = 15 // Maximum for readability
+        
+        var bestDotSize: CGFloat = 16
+        var bestDotsPerRow = minDotsPerRow
+        
+        for dotsPerRow in minDotsPerRow...maxDotsPerRow {
+            let totalRows = Int(ceil(Double(monthDates.count) / Double(dotsPerRow)))
+            let dotSizeForHeight = (availableHeight - CGFloat(totalRows - 1) * spacing) / CGFloat(totalRows)
+            let dotSizeForWidth = (availableWidth - CGFloat(dotsPerRow - 1) * spacing) / CGFloat(dotsPerRow)
+            let dotSize = min(dotSizeForHeight, dotSizeForWidth)
+            
+            if dotSize > bestDotSize && dotSize >= 12 { // Minimum readable size
+                bestDotSize = dotSize
+                bestDotsPerRow = dotsPerRow
+            }
+        }
+        
+        return (dotSize: bestDotSize, dotsPerRow: bestDotsPerRow)
+    }
+    
     var body: some View {
         GeometryReader { geometry in
             let availableWidth = geometry.size.width - 32 // Account for padding
-            let dotsPerRow = Int(availableWidth / (dotSize + spacing))
-            let totalRows = Int(ceil(Double(monthDates.count) / Double(dotsPerRow)))
-            let gridHeight = CGFloat(totalRows) * (dotSize + spacing) - spacing
+            let availableHeight = geometry.size.height - 40 // Account for padding
+            let layout = calculateOptimalLayout(availableWidth: availableWidth, availableHeight: availableHeight)
             
-            ScrollView {
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: spacing), count: dotsPerRow), spacing: spacing) {
+            VStack {
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: spacing), count: layout.dotsPerRow), spacing: spacing) {
                     ForEach(Array(monthDates.enumerated()), id: \.element) { dayIndex, date in
                         let daysSinceOnboarding = viewModel.daysSinceOnboarding()
                         let onboardingDate = viewModel.onboardingDate
@@ -57,7 +77,10 @@ struct MonthView: View {
                             isToday: isCurrentDay,
                             isFuture: isFutureDay,
                             accentColor: accentColor,
-                            isHovered: false
+                            isHovered: false,
+                            dotSize: layout.dotSize,
+                            tintedBackgrounds: tintedBackgrounds,
+                            colorScheme: colorScheme
                         )
                         .onTapGesture {
                             if !isFutureDay {
@@ -68,8 +91,10 @@ struct MonthView: View {
                     }
                 }
                 .padding(.horizontal, 16)
-                .frame(minHeight: min(gridHeight, geometry.size.height))
+                
+                Spacer()
             }
+            .padding(.top, 20)
         }
     }
 }
