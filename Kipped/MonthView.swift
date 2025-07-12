@@ -65,9 +65,6 @@ struct MonthView: View {
             VStack {
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: spacing), count: layout.dotsPerRow), spacing: spacing) {
                     ForEach(Array(monthDates.enumerated()), id: \.element) { dayIndex, date in
-                        let daysSinceOnboarding = viewModel.daysSinceOnboarding()
-                        let onboardingDate = viewModel.onboardingDate
-                        let daysSinceOnboardingForDate = Calendar.current.dateComponents([.day], from: onboardingDate, to: date).day ?? 0
                         let isCurrentDay = Calendar.current.isDateInToday(date)
                         let isFutureDay = date > Date()
                         

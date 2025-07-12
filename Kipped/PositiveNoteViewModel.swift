@@ -53,16 +53,19 @@ class PositiveNoteViewModel: ObservableObject {
     // MARK: - Note Management
     
     func addNote(content: String, for date: Date = Date()) {
+        // Normalize the date to start of day
+        let normalizedDate = Calendar.current.startOfDay(for: date)
+        
         // Check if note already exists for this date
         if let existingIndex = notes.firstIndex(where: { 
-            Calendar.current.isDate($0.date, inSameDayAs: date) 
+            Calendar.current.isDate($0.date, inSameDayAs: normalizedDate) 
         }) {
             // Update existing note
             notes[existingIndex].content = content
             lastCreatedNoteId = notes[existingIndex].id
         } else {
             // Create new note
-            let newNote = PositiveNote(content: content, date: date)
+            let newNote = PositiveNote(content: content, date: normalizedDate)
             notes.append(newNote)
             lastCreatedNoteId = newNote.id
         }

@@ -48,6 +48,7 @@ struct ContentView: View {
     @State private var smudgeParticles: [SmudgeParticle] = []
     @State private var isDragging = false
     @State private var lastDragPosition: CGPoint?
+    @State private var notificationObserver: NSObjectProtocol?
     
     @AppStorage("selectedAppIcon") private var selectedAppIcon: AppIconOption = .default
     @Binding var appTheme: AppTheme
@@ -312,6 +313,24 @@ struct ContentView: View {
         .onChange(of: selectedDate) { oldValue, newValue in
             if newValue != nil {
                 showingAddNote = true
+            }
+        }
+        .onAppear {
+            // Listen for notification taps
+            notificationObserver = NotificationCenter.default.addObserver(
+                forName: NotificationManager.notificationTappedNotification,
+                object: nil,
+                queue: .main
+            ) { _ in
+                // Set the selected date to today (start of day) and show the add note modal
+                selectedDate = Calendar.current.startOfDay(for: Date())
+                showingAddNote = true
+            }
+        }
+        .onDisappear {
+            // Remove the observer when view disappears
+            if let observer = notificationObserver {
+                NotificationCenter.default.removeObserver(observer)
             }
         }
     }

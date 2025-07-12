@@ -26,9 +26,19 @@ struct YearView: View {
     }
     
     private var yearDates: [Date] {
-        return (0..<365).map { dayIndex in
-            viewModel.dateForDay(dayIndex)
+        let calendar = Calendar.current
+        let startOfYear = calendar.date(from: DateComponents(year: year, month: 1, day: 1))!
+        let endOfYear = calendar.date(from: DateComponents(year: year, month: 12, day: 31))!
+        
+        var dates: [Date] = []
+        var currentDate = startOfYear
+        
+        while currentDate <= endOfYear {
+            dates.append(currentDate)
+            currentDate = calendar.date(byAdding: .day, value: 1, to: currentDate)!
         }
+        
+        return dates
     }
     
     private var datesByMonth: [[Date]] {

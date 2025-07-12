@@ -83,8 +83,16 @@ struct SettingsView: View {
     @State private var showingAccentSheet = false
     @State private var showingAppIconSheet = false
     @State private var showingFontSheet = false
+    @State private var notificationTime = NotificationManager.shared.loadNotificationTime()
+    @State private var showingTimePicker = false
     
     let accentColors: [(Color, String)] = MaterialColorCategory.allCategories.first?.colors.map { ($0.color, $0.name) } ?? []
+    
+    private let timeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        return formatter
+    }()
     
     private var tintedBackground: Color {
         Color.tintedBackground(accentColor: accentColor, isEnabled: tintedBackgrounds, colorScheme: colorScheme)
@@ -177,6 +185,15 @@ struct SettingsView: View {
                     
                     Section("Configure") {
                         HStack {
+                            Text("Haptics")
+                                .appFont(selectedFont)
+                                .foregroundColor(.primary)
+                            Spacer()
+                            SkeuomorphicToggle(isOn: $hapticsEnabled, accentColor: accentColor, isHapticsToggle: true)
+                        }
+                        .listRowBackground(tintedSecondaryBackground)
+                        
+                        HStack {
                             Text("Notifications")
                                 .appFont(selectedFont)
                                 .foregroundColor(.primary)
@@ -185,14 +202,26 @@ struct SettingsView: View {
                         }
                         .listRowBackground(tintedSecondaryBackground)
                         
-                        HStack {
-                            Text("Haptics")
-                                .appFont(selectedFont)
-                                .foregroundColor(.primary)
-                            Spacer()
-                            SkeuomorphicToggle(isOn: $hapticsEnabled, accentColor: accentColor, isHapticsToggle: true)
+                        if notificationsEnabled {
+                            Button(action: {
+                                HapticsManager.shared.impact(.soft)
+                                showingTimePicker = true
+                            }) {
+                                HStack {
+                                    Text("Daily prompt time")
+                                        .appFont(selectedFont)
+                                        .foregroundColor(.primary)
+                                    Spacer()
+                                    Text(timeFormatter.string(from: notificationTime))
+                                        .appFont(selectedFont)
+                                        .foregroundColor(.secondary)
+                                    Image(systemName: "chevron.right")
+                                        .foregroundColor(.secondary)
+                                        .font(.caption)
+                                }
+                            }
+                            .listRowBackground(tintedSecondaryBackground)
                         }
-                        .listRowBackground(tintedSecondaryBackground)
                     }
                     
                 }
@@ -255,27 +284,38 @@ struct SettingsView: View {
             .presentationDetents([.fraction(0.25)])
             .presentationDragIndicator(.hidden)
         }
+        .sheet(isPresented: $showingTimePicker) {
+            NotificationTimePickerContent(
+                notificationTime: $notificationTime,
+                onTimeSelected: { time in
+                    notificationTime = time
+                    NotificationManager.shared.scheduleDailyNotification(at: time)
+                },
+                accentColor: accentColor,
+                tintedBackgrounds: tintedBackgrounds,
+                currentColorScheme: colorScheme,
+                selectedFont: selectedFont
+            )
+            .presentationDetents([.fraction(0.3)])
+        }
         .preferredColorScheme(colorScheme)
     }
     
     private func handleNotificationsToggle(_ enabled: Bool) {
         if enabled {
             // Request notification permission
-            UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
-                DispatchQueue.main.async {
-                    if !granted {
-                        // If permission denied, revert toggle
-                        notificationsEnabled = false
-                    }
-                    if let error = error {
-                        print("Notification permission error: \(error)")
-                        notificationsEnabled = false
-                    }
+            NotificationManager.shared.requestNotificationPermissions { granted in
+                if granted {
+                    // Schedule notification at the saved time
+                    NotificationManager.shared.scheduleDailyNotification(at: notificationTime)
+                } else {
+                    // If permission denied, revert toggle
+                    notificationsEnabled = false
                 }
             }
         } else {
-            // When turning off, we can't revoke permissions, but we can stop scheduling notifications
-            UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
+            // When turning off, cancel notifications
+            NotificationManager.shared.cancelDailyNotification()
         }
     }
 }
@@ -480,6 +520,53 @@ struct VisualEffectView: UIViewRepresentable {
     }
     func updateUIView(_ uiView: UIVisualEffectView, context: Context) {
         uiView.effect = effect
+    }
+}
+
+struct NotificationTimePickerContent: View {
+    @Binding var notificationTime: Date
+    let onTimeSelected: (Date) -> Void
+    let accentColor: Color
+    let tintedBackgrounds: Bool
+    var currentColorScheme: ColorScheme?
+    let selectedFont: FontOption
+    @State private var tempTime: Date
+    @Environment(\.dismiss) private var dismiss
+    
+    init(notificationTime: Binding<Date>, onTimeSelected: @escaping (Date) -> Void, accentColor: Color, tintedBackgrounds: Bool, currentColorScheme: ColorScheme?, selectedFont: FontOption) {
+        self._notificationTime = notificationTime
+        self.onTimeSelected = onTimeSelected
+        self.accentColor = accentColor
+        self.tintedBackgrounds = tintedBackgrounds
+        self.currentColorScheme = currentColorScheme
+        self.selectedFont = selectedFont
+        self._tempTime = State(initialValue: notificationTime.wrappedValue)
+    }
+    
+    var body: some View {
+        NavigationView {
+            VStack {
+                DatePicker("", selection: $tempTime, displayedComponents: .hourAndMinute)
+                    .datePickerStyle(WheelDatePickerStyle())
+                    .labelsHidden()
+                    .frame(height: 200)
+                
+                Spacer()
+            }
+            .padding()
+            .navigationTitle("Select time")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") {
+                        onTimeSelected(tempTime)
+                        dismiss()
+                    }
+                    .appFont(selectedFont)
+                }
+            }
+        }
+        .preferredColorScheme(currentColorScheme)
     }
 }
 

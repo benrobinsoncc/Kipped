@@ -71,7 +71,7 @@ class HapticsManager {
 struct KippedApp: App {
     @State private var appTheme: AppTheme = KippedApp.loadTheme()
     @State private var accentColor: Color = KippedApp.loadAccentColor()
-    @State private var notificationsEnabled: Bool = true
+    @State private var notificationsEnabled: Bool = KippedApp.loadNotificationsEnabled()
     @State private var hapticsEnabled: Bool = KippedApp.loadHapticsEnabled()
     @State private var selectedFont: FontOption = KippedApp.loadFont()
     @State private var tintedBackgrounds: Bool = KippedApp.loadTintedBackgrounds()
@@ -85,9 +85,15 @@ struct KippedApp: App {
     }
 
     init() {
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
-            if let error = error {
-                print("Notification permission error: \(error)")
+        // Initialize NotificationManager to set up delegate
+        _ = NotificationManager.shared
+        
+        // Check notification status on app launch
+        NotificationManager.shared.checkNotificationStatus { authorized in
+            if authorized && UserDefaults.standard.bool(forKey: "notifications_enabled") {
+                // If notifications are authorized and enabled, ensure daily notification is scheduled
+                let notificationTime = NotificationManager.shared.loadNotificationTime()
+                NotificationManager.shared.scheduleDailyNotification(at: notificationTime)
             }
         }
     }
@@ -112,6 +118,9 @@ struct KippedApp: App {
                 .onChange(of: tintedBackgrounds) { newValue in
                     KippedApp.saveTintedBackgrounds(newValue)
                 }
+                .onChange(of: notificationsEnabled) { newValue in
+                    KippedApp.saveNotificationsEnabled(newValue)
+                }
         }
     }
 
@@ -121,6 +130,7 @@ struct KippedApp: App {
     private static let hapticsEnabledKey = "haptics_enabled"
     private static let fontKey = "selected_font"
     private static let tintedBackgroundsKey = "tinted_backgrounds"
+    private static let notificationsEnabledKey = "notifications_enabled"
 
     static func saveTheme(_ theme: AppTheme) {
         UserDefaults.standard.set(theme.rawValue, forKey: themeKey)
@@ -213,6 +223,17 @@ struct KippedApp: App {
     static func loadTintedBackgrounds() -> Bool {
         if UserDefaults.standard.object(forKey: tintedBackgroundsKey) != nil {
             return UserDefaults.standard.bool(forKey: tintedBackgroundsKey)
+        }
+        return false // Default to disabled
+    }
+    
+    static func saveNotificationsEnabled(_ enabled: Bool) {
+        UserDefaults.standard.set(enabled, forKey: notificationsEnabledKey)
+    }
+    
+    static func loadNotificationsEnabled() -> Bool {
+        if UserDefaults.standard.object(forKey: notificationsEnabledKey) != nil {
+            return UserDefaults.standard.bool(forKey: notificationsEnabledKey)
         }
         return false // Default to disabled
     }

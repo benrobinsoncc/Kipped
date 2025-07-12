@@ -170,30 +170,20 @@ struct AddPositiveNoteView: View {
                 
                 Spacer()
                 
-                // Save button
-                Button(action: saveNote) {
-                    Text(isEditing ? "Update" : "Save")
-                        .appFont(selectedFont)
-                        .font(.headline)
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(accentColor)
-                        .cornerRadius(12)
+                // Save button with skeuomorphic style
+                HStack {
+                    Spacer()
+                    SkeuomorphicSaveButton(
+                        accentColor: accentColor,
+                        isEnabled: !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                        action: saveNote
+                    )
+                    Spacer()
                 }
-                .disabled(content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                .opacity(content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.5 : 1.0)
             }
             .padding()
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") {
-                        dismiss()
-                    }
-                    .appFont(selectedFont)
-                }
-                
                 ToolbarItem(placement: .principal) {
                     if isEditing {
                         Text("Edit Note")
@@ -223,20 +213,64 @@ struct AddPositiveNoteView: View {
         .sheet(isPresented: $showingDatePicker) {
             NavigationView {
                 VStack {
-                    DatePicker(
-                        "",
-                        selection: $tempSelectedDate,
-                        in: ...Date(),
-                        displayedComponents: .date
-                    )
-                    .datePickerStyle(.wheel)
-                    .labelsHidden()
-                    .environment(\.font, .title)
+                    HStack(spacing: 0) {
+                        // Month picker
+                        Picker("Month", selection: Binding(
+                            get: {
+                                Calendar.current.component(.month, from: tempSelectedDate) - 1
+                            },
+                            set: { newMonth in
+                                var components = Calendar.current.dateComponents([.year, .month, .day], from: tempSelectedDate)
+                                components.month = newMonth + 1
+                                
+                                // Adjust day if it exceeds the new month's days
+                                if let range = Calendar.current.range(of: .day, in: .month, for: Calendar.current.date(from: components) ?? Date()),
+                                   let currentDay = components.day,
+                                   currentDay > range.count {
+                                    components.day = range.count
+                                }
+                                
+                                if let newDate = Calendar.current.date(from: components) {
+                                    tempSelectedDate = newDate
+                                }
+                            }
+                        )) {
+                            ForEach(0..<12, id: \.self) { monthIndex in
+                                Text(Calendar.current.monthSymbols[monthIndex])
+                                    .tag(monthIndex)
+                            }
+                        }
+                        .pickerStyle(.wheel)
+                        .frame(width: 150)
+                        
+                        // Day picker
+                        Picker("Day", selection: Binding(
+                            get: {
+                                Calendar.current.component(.day, from: tempSelectedDate)
+                            },
+                            set: { newDay in
+                                var components = Calendar.current.dateComponents([.year, .month, .day], from: tempSelectedDate)
+                                components.day = newDay
+                                if let newDate = Calendar.current.date(from: components) {
+                                    tempSelectedDate = newDate
+                                }
+                            }
+                        )) {
+                            let daysInMonth = Calendar.current.range(of: .day, in: .month, for: tempSelectedDate)?.count ?? 31
+                            ForEach(1...daysInMonth, id: \.self) { day in
+                                Text("\(day)")
+                                    .tag(day)
+                            }
+                        }
+                        .pickerStyle(.wheel)
+                        .frame(width: 100)
+                    }
+                    .frame(height: 200)
                     
                     Spacer()
                 }
                 .padding()
-                .navigationTitle("Select Date")
+                .navigationTitle("Select date")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .navigationBarTrailing) {
