@@ -1,19 +1,5 @@
 import SwiftUI
 
-// MARK: - SmudgeParticle
-struct SmudgeParticle: Identifiable {
-    let id = UUID()
-    let position: CGPoint
-    let creationTime: Date
-    var opacity: Double = 1.0
-    var scale: Double = 1.0
-    
-    init(position: CGPoint) {
-        self.position = position
-        self.creationTime = Date()
-    }
-}
-
 // MARK: - PurpleSmudgeView
 struct PurpleSmudgeView: View {
     let accentColor: Color
