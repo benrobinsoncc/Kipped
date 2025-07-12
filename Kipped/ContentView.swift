@@ -155,7 +155,7 @@ struct ContentView: View {
             GeometryReader { geometry in
                 NavigationStack {
                     VStack(spacing: 0) {
-                        // Main content (full height available)
+                        // Main content
                         Group {
                             switch viewMode {
                             case .year:
@@ -167,6 +167,7 @@ struct ContentView: View {
                                     tintedBackgrounds: tintedBackgrounds,
                                     colorScheme: currentColorScheme
                                 )
+                                .frame(height: geometry.size.height - 120) // Constrain year/month views
                             case .month:
                                 MonthView(
                                     viewModel: viewModel,
@@ -177,6 +178,7 @@ struct ContentView: View {
                                     tintedBackgrounds: tintedBackgrounds,
                                     colorScheme: currentColorScheme
                                 )
+                                .frame(height: geometry.size.height - 120) // Constrain year/month views
                             case .week:
                                 PositivityListView(
                                     viewModel: viewModel,
@@ -187,9 +189,22 @@ struct ContentView: View {
                                     tintedBackgrounds: tintedBackgrounds,
                                     colorScheme: currentColorScheme
                                 )
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                .mask(
+                                    // Fade mask for bottom 100pts
+                                    LinearGradient(
+                                        gradient: Gradient(stops: [
+                                            .init(color: Color.black, location: 0.0),
+                                            .init(color: Color.black, location: 0.7),
+                                            .init(color: Color.black.opacity(0.3), location: 0.9),
+                                            .init(color: Color.clear, location: 1.0)
+                                        ]),
+                                        startPoint: .top,
+                                        endPoint: .bottom
+                                    )
+                                )
                             }
                         }
-                        .frame(height: geometry.size.height - 120) // Reserve space for bottom UI only
                         .transition(.opacity.combined(with: .scale(scale: 0.98)))
                     }
                     .toolbar {
@@ -216,8 +231,17 @@ struct ContentView: View {
             VStack {
                 Spacer()
                 
-                VStack(spacing: 16) {
-                    // View switcher (bottom left)
+                ZStack {
+                    // Create button (always centered)
+                    SkeuomorphicCreateButton(
+                        accentColor: accentColor,
+                        action: {
+                            selectedDate = Date()
+                            showingAddNote = true
+                        }
+                    )
+                    
+                    // View switcher (left aligned)
                     HStack {
                         Button(action: {
                             withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
@@ -243,19 +267,6 @@ struct ContentView: View {
                             .cornerRadius(20)
                         }
                         
-                        Spacer()
-                    }
-                            
-                    // Create button (centered)
-                    HStack {
-                        Spacer()
-                        SkeuomorphicCreateButton(
-                            accentColor: accentColor,
-                            action: {
-                                selectedDate = Date()
-                                showingAddNote = true
-                            }
-                        )
                         Spacer()
                     }
                 }

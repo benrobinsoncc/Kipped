@@ -56,8 +56,8 @@ struct PositivityListView: View {
                         }
                     }
                     
-                    // Bottom spacing
-                    Color.clear.frame(height: 100)
+                    // Bottom spacing to allow content to scroll into fade zone
+                    Color.clear.frame(height: 200)
                 }
             }
         }
