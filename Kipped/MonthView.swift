@@ -10,13 +10,18 @@ import SwiftUI
 struct MonthView: View {
     @ObservedObject var viewModel: PositiveNoteViewModel
     @Binding var selectedDate: Date?
+    @Binding var selectedNote: PositiveNote?
     @Binding var currentMonth: Date
     let accentColor: Color
     let selectedFont: FontOption
     let tintedBackgrounds: Bool
     let colorScheme: ColorScheme?
+    let animationNamespace: Namespace.ID
+    let skipAnimation: Bool
     
-    private let spacing: CGFloat = 6
+    @State private var hoveredDate: Date?
+    
+    private let dotsPerRow = 5 // Same as YearView's MonthDotGrid
     
     private var monthDates: [Date] {
         let calendar = Calendar.current
@@ -33,65 +38,98 @@ struct MonthView: View {
         return dates
     }
     
-    
-    private func calculateOptimalLayout(availableWidth: CGFloat, availableHeight: CGFloat) -> (dotSize: CGFloat, dotsPerRow: Int) {
-        let minDotsPerRow = 7 // Minimum for week layout
-        let maxDotsPerRow = 15 // Maximum for readability
+    private func calculateOptimalDotSize(availableWidth: CGFloat, availableHeight: CGFloat) -> (dotSize: CGFloat, spacing: CGFloat) {
+        let totalRows = Int(ceil(Double(monthDates.count) / Double(dotsPerRow)))
         
-        var bestDotSize: CGFloat = 16
-        var bestDotsPerRow = minDotsPerRow
+        // Fixed spacing for consistent layout
+        let spacing: CGFloat = 12
         
-        for dotsPerRow in minDotsPerRow...maxDotsPerRow {
-            let totalRows = Int(ceil(Double(monthDates.count) / Double(dotsPerRow)))
-            let dotSizeForHeight = (availableHeight - CGFloat(totalRows - 1) * spacing) / CGFloat(totalRows)
-            let dotSizeForWidth = (availableWidth - CGFloat(dotsPerRow - 1) * spacing) / CGFloat(dotsPerRow)
-            let dotSize = min(dotSizeForHeight, dotSizeForWidth)
-            
-            if dotSize > bestDotSize && dotSize >= 12 { // Minimum readable size
-                bestDotSize = dotSize
-                bestDotsPerRow = dotsPerRow
-            }
-        }
+        // Calculate dot size to fit the available space with spacing
+        let totalHorizontalSpacing = CGFloat(dotsPerRow - 1) * spacing
+        let totalVerticalSpacing = CGFloat(totalRows - 1) * spacing
         
-        return (dotSize: bestDotSize, dotsPerRow: bestDotsPerRow)
+        let dotSizeForWidth = (availableWidth - totalHorizontalSpacing) / CGFloat(dotsPerRow)
+        let dotSizeForHeight = (availableHeight - totalVerticalSpacing) / CGFloat(totalRows)
+        
+        // Use the smaller of the two to ensure it fits
+        let dotSize = min(dotSizeForWidth, dotSizeForHeight, 50) // Cap at 50 for cleaner look
+        
+        return (dotSize: max(dotSize, 16), spacing: spacing) // Minimum dot size of 16
     }
     
     var body: some View {
         GeometryReader { geometry in
-            let availableWidth = geometry.size.width - 32 // Account for padding
-            let availableHeight = geometry.size.height - 40 // Account for padding
-            let layout = calculateOptimalLayout(availableWidth: availableWidth, availableHeight: availableHeight)
+            let availableWidth = geometry.size.width
+            let availableHeight = geometry.size.height - 40 // Account for vertical padding
+            let layout = calculateOptimalDotSize(availableWidth: availableWidth - 48, availableHeight: availableHeight)
             
             VStack {
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: spacing), count: layout.dotsPerRow), spacing: spacing) {
-                    ForEach(Array(monthDates.enumerated()), id: \.element) { dayIndex, date in
-                        let isCurrentDay = Calendar.current.isDateInToday(date)
-                        let isFutureDay = date > Date()
-                        
-                        DayDotView(
-                            date: date,
-                            hasNote: viewModel.hasNoteForDate(date),
-                            isToday: isCurrentDay,
-                            isFuture: isFutureDay,
-                            accentColor: accentColor,
-                            isHovered: false,
-                            dotSize: layout.dotSize,
-                            tintedBackgrounds: tintedBackgrounds,
-                            colorScheme: colorScheme
-                        )
-                        .onTapGesture {
-                            if !isFutureDay {
-                                selectedDate = date
-                                HapticsManager.shared.impact(.soft)
+                VStack(spacing: layout.spacing) {
+                    // Create rows of dots
+                    ForEach(0..<numberOfRows, id: \.self) { row in
+                        HStack(spacing: layout.spacing) {
+                            ForEach(0..<dotsPerRow, id: \.self) { col in
+                                let index = row * dotsPerRow + col
+                                if index < monthDates.count {
+                                    let date = monthDates[index]
+                                    let isCurrentDay = Calendar.current.isDateInToday(date)
+                                    let isFutureDay = date > Date()
+                                    
+                                    DayDotView(
+                                        date: date,
+                                        hasNote: viewModel.hasNoteForDate(date),
+                                        isToday: isCurrentDay,
+                                        isFuture: isFutureDay,
+                                        accentColor: accentColor,
+                                        isHovered: hoveredDate == date,
+                                        dotSize: layout.dotSize,
+                                        tintedBackgrounds: tintedBackgrounds,
+                                        colorScheme: colorScheme,
+                                        skipAnimation: skipAnimation
+                                    )
+                                    .frame(width: layout.dotSize, height: layout.dotSize)
+                                    .contentShape(Rectangle())
+                                    .onTapGesture {
+                                        if !isFutureDay {
+                                            // Check if there's an existing note for this date
+                                            if let existingNote = viewModel.getNoteForDate(date) {
+                                                selectedNote = existingNote
+                                            } else {
+                                                selectedNote = nil
+                                            }
+                                            selectedDate = date
+                                            HapticsManager.shared.impact(.soft)
+                                        }
+                                    }
+                                    .onHover { hovering in
+                                        hoveredDate = hovering ? date : nil
+                                    }
+                                } else {
+                                    // Empty space for missing days
+                                    Circle()
+                                        .fill(Color.clear)
+                                        .frame(width: layout.dotSize, height: layout.dotSize)
+                                }
                             }
                         }
                     }
                 }
-                .padding(.horizontal, 16)
+                .padding(.horizontal, 24) // Updated to 24pt margins
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .matchedGeometryEffect(id: "month-\(monthIndex)", in: animationNamespace)
                 
                 Spacer()
             }
         }
+    }
+    
+    private var monthIndex: Int {
+        let calendar = Calendar.current
+        return calendar.component(.month, from: currentMonth) - 1
+    }
+    
+    private var numberOfRows: Int {
+        Int(ceil(Double(monthDates.count) / Double(dotsPerRow)))
     }
 }
 

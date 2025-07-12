@@ -49,6 +49,10 @@ struct ContentView: View {
     @State private var isDragging = false
     @State private var lastDragPosition: CGPoint?
     @State private var notificationObserver: NSObjectProtocol?
+    @Namespace private var animationNamespace
+    @State private var zoomScale: CGFloat = 1.0
+    @State private var zoomOffset: CGSize = .zero
+    @State private var navigatedViaZoom: Bool = false
     
     @AppStorage("selectedAppIcon") private var selectedAppIcon: AppIconOption = .default
     @Binding var appTheme: AppTheme
@@ -163,21 +167,33 @@ struct ContentView: View {
                                 YearView(
                                     viewModel: viewModel,
                                     selectedDate: $selectedDate,
+                                    viewMode: $viewMode,
+                                    currentMonth: $currentMonth,
+                                    zoomScale: $zoomScale,
+                                    zoomOffset: $zoomOffset,
+                                    navigatedViaZoom: $navigatedViaZoom,
                                     accentColor: accentColor,
                                     selectedFont: selectedFont,
                                     tintedBackgrounds: tintedBackgrounds,
-                                    colorScheme: currentColorScheme
+                                    colorScheme: currentColorScheme,
+                                    animationNamespace: animationNamespace,
+                                    containerSize: geometry.size
                                 )
                                 .frame(height: geometry.size.height - 120) // Match MonthView constraint
+                                .scaleEffect(zoomScale, anchor: .center)
+                                .offset(zoomOffset)
                             case .month:
                                 MonthView(
                                     viewModel: viewModel,
                                     selectedDate: $selectedDate,
+                                    selectedNote: $selectedNote,
                                     currentMonth: $currentMonth,
                                     accentColor: accentColor,
                                     selectedFont: selectedFont,
                                     tintedBackgrounds: tintedBackgrounds,
-                                    colorScheme: currentColorScheme
+                                    colorScheme: currentColorScheme,
+                                    animationNamespace: animationNamespace,
+                                    skipAnimation: navigatedViaZoom
                                 )
                                 .frame(height: geometry.size.height - 120) // Constrain year/month views
                             case .week:
@@ -207,7 +223,7 @@ struct ContentView: View {
                             }
                         }
                         .padding(.top, -80) // Reduce gap between navigation and content
-                        .transition(.opacity.combined(with: .scale(scale: 0.98)))
+                        .zIndex(viewMode == .year ? 1 : 0) // Ensure year view is on top during transition
                     }
                     .toolbar {
                         ToolbarItem(placement: .principal) {
@@ -246,7 +262,11 @@ struct ContentView: View {
                     // View switcher (left aligned)
                     HStack {
                         Button(action: {
+                            // Reset zoom when changing views
+                            navigatedViaZoom = false
                             withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                zoomScale = 1.0
+                                zoomOffset = .zero
                                 let currentIndex = ViewMode.allCases.firstIndex(of: viewMode) ?? 0
                                 let nextIndex = (currentIndex + 1) % ViewMode.allCases.count
                                 viewMode = ViewMode.allCases[nextIndex]
