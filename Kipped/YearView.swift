@@ -17,8 +17,9 @@ struct YearView: View {
     
     @State private var hoveredDate: Date?
     
-    private let dotSize: CGFloat = 12
-    private let spacing: CGFloat = 8
+    private let dotSize: CGFloat = 10
+    private let spacing: CGFloat = 10
+    private let monthGap: CGFloat = 24
     
     private var year: Int {
         Calendar.current.component(.year, from: Date())
@@ -30,76 +31,162 @@ struct YearView: View {
         }
     }
     
-    private var daysInYear: Int {
+    private var datesByMonth: [[Date]] {
         let calendar = Calendar.current
-        let startOfYear = calendar.date(from: DateComponents(year: year, month: 1, day: 1))!
-        let endOfYear = calendar.date(from: DateComponents(year: year + 1, month: 1, day: 1))!
-        return calendar.dateComponents([.day], from: startOfYear, to: endOfYear).day!
-    }
-    
-    private func calculateOptimalDotsPerRow(maxDotsPerRow: Int, maxRows: Int) -> Int {
-        // Target 13 dots per row, but ensure we can fit all 365 dots
-        let targetDotsPerRow = 13
-        let actualDotsPerRow = min(targetDotsPerRow, maxDotsPerRow)
-        let requiredRows = Int(ceil(365.0 / Double(actualDotsPerRow)))
+        var monthArrays: [[Date]] = Array(repeating: [], count: 12)
         
-        // If we can fit the required rows, use the target
-        if requiredRows <= maxRows {
-            return actualDotsPerRow
+        for date in yearDates {
+            let month = calendar.component(.month, from: date) - 1
+            if month >= 0 && month < 12 {
+                monthArrays[month].append(date)
+            }
         }
         
-        // Otherwise, calculate minimum needed to fit all dots
-        return max(actualDotsPerRow, Int(ceil(365.0 / Double(maxRows))))
+        return monthArrays
     }
     
     var body: some View {
         GeometryReader { geometry in
-            let availableWidth = geometry.size.width - 32 // Match MonthView padding
-            let availableHeight = geometry.size.height - 40 // Match MonthView padding
-            
-            // Calculate optimal grid layout to fill vertical space
-            let maxDotsPerRow = max(1, Int(availableWidth / (dotSize + spacing)))
-            let maxRows = max(1, Int(availableHeight / (dotSize + spacing)))
-            
-            // Find the best combination of rows and columns to fit 365 dots
-            let bestDotsPerRow = calculateOptimalDotsPerRow(maxDotsPerRow: maxDotsPerRow, maxRows: maxRows)
-            let bestRows = Int(ceil(365.0 / Double(bestDotsPerRow)))
-            let gridHeight = CGFloat(bestRows) * (dotSize + spacing) - spacing
-            
             VStack {
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: spacing), count: bestDotsPerRow), spacing: spacing) {
-                    ForEach(Array(yearDates.enumerated()), id: \.element) { dayIndex, date in
-                        let daysSinceOnboarding = viewModel.daysSinceOnboarding()
-                        let isCurrentDay = dayIndex == daysSinceOnboarding
-                        let isFutureDay = dayIndex > daysSinceOnboarding
-                        
-                        DayDotView(
-                            date: date,
-                            hasNote: viewModel.hasNoteForDate(date),
-                            isToday: isCurrentDay,
-                            isFuture: isFutureDay,
-                            accentColor: accentColor,
-                            isHovered: hoveredDate == date,
-                            dotSize: dotSize,
-                            tintedBackgrounds: tintedBackgrounds,
-                            colorScheme: colorScheme
-                        )
-                        .onTapGesture {
-                            if !isFutureDay {
-                                selectedDate = date
-                                HapticsManager.shared.impact(.soft)
-                            }
+                VStack(alignment: .leading, spacing: 24) {
+                    // Row 1 - Jan, Feb, Mar
+                    HStack(alignment: .top, spacing: 20) {
+                        ForEach(0..<3) { col in
+                            MonthDotGrid(
+                                dates: datesByMonth[col],
+                                viewModel: viewModel,
+                                selectedDate: $selectedDate,
+                                hoveredDate: $hoveredDate,
+                                accentColor: accentColor,
+                                dotSize: 10,
+                                spacing: 10,
+                                tintedBackgrounds: tintedBackgrounds,
+                                colorScheme: colorScheme
+                            )
                         }
-                        .onHover { hovering in
-                            hoveredDate = hovering ? date : nil
+                    }
+                    
+                    // Row 2 - Apr, May, Jun
+                    HStack(alignment: .top, spacing: 20) {
+                        ForEach(3..<6) { monthIndex in
+                            MonthDotGrid(
+                                dates: datesByMonth[monthIndex],
+                                viewModel: viewModel,
+                                selectedDate: $selectedDate,
+                                hoveredDate: $hoveredDate,
+                                accentColor: accentColor,
+                                dotSize: 10,
+                                spacing: 10,
+                                tintedBackgrounds: tintedBackgrounds,
+                                colorScheme: colorScheme
+                            )
+                        }
+                    }
+                    
+                    // Row 3 - Jul, Aug, Sep
+                    HStack(alignment: .top, spacing: 20) {
+                        ForEach(6..<9) { monthIndex in
+                            MonthDotGrid(
+                                dates: datesByMonth[monthIndex],
+                                viewModel: viewModel,
+                                selectedDate: $selectedDate,
+                                hoveredDate: $hoveredDate,
+                                accentColor: accentColor,
+                                dotSize: 10,
+                                spacing: 10,
+                                tintedBackgrounds: tintedBackgrounds,
+                                colorScheme: colorScheme
+                            )
+                        }
+                    }
+                    
+                    // Row 4 - Oct, Nov, Dec
+                    HStack(alignment: .top, spacing: 20) {
+                        ForEach(9..<12) { monthIndex in
+                            MonthDotGrid(
+                                dates: datesByMonth[monthIndex],
+                                viewModel: viewModel,
+                                selectedDate: $selectedDate,
+                                hoveredDate: $hoveredDate,
+                                accentColor: accentColor,
+                                dotSize: 10,
+                                spacing: 10,
+                                tintedBackgrounds: tintedBackgrounds,
+                                colorScheme: colorScheme
+                            )
                         }
                     }
                 }
-                .padding(.horizontal, 32)
+                .padding(.horizontal, 16)
                 
                 Spacer()
             }
         }
+    }
+}
+
+struct MonthDotGrid: View {
+    let dates: [Date]
+    let viewModel: PositiveNoteViewModel
+    @Binding var selectedDate: Date?
+    @Binding var hoveredDate: Date?
+    let accentColor: Color
+    let dotSize: CGFloat
+    let spacing: CGFloat
+    let tintedBackgrounds: Bool
+    let colorScheme: ColorScheme?
+    
+    private let dotsPerRow = 5 // 5 dots per row for better space utilization
+    
+    var body: some View {
+        VStack(spacing: spacing) {
+            // Create rows of dots
+            ForEach(0..<numberOfRows, id: \.self) { row in
+                HStack(spacing: spacing) {
+                    ForEach(0..<dotsPerRow, id: \.self) { col in
+                        let index = row * dotsPerRow + col
+                        if index < dates.count {
+                            let date = dates[index]
+                            let calendar = Calendar.current
+                            let today = Date()
+                            let isToday = calendar.isDateInToday(date)
+                            let isFutureDay = date > today
+                            
+                            DayDotView(
+                                date: date,
+                                hasNote: viewModel.hasNoteForDate(date),
+                                isToday: isToday,
+                                isFuture: isFutureDay,
+                                accentColor: accentColor,
+                                isHovered: hoveredDate == date,
+                                dotSize: dotSize, // Full size dots
+                                tintedBackgrounds: tintedBackgrounds,
+                                colorScheme: colorScheme
+                            )
+                            .onTapGesture {
+                                if !isFutureDay {
+                                    selectedDate = date
+                                    HapticsManager.shared.impact(.soft)
+                                }
+                            }
+                            .onHover { hovering in
+                                hoveredDate = hovering ? date : nil
+                            }
+                        } else {
+                            // Empty space for missing days
+                            Circle()
+                                .fill(Color.clear)
+                                .frame(width: dotSize, height: dotSize)
+                        }
+                    }
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .top)
+    }
+    
+    private var numberOfRows: Int {
+        Int(ceil(Double(dates.count) / Double(dotsPerRow)))
     }
 }
 
