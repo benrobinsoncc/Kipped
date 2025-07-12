@@ -42,7 +42,7 @@ struct YearView: View {
         GeometryReader { geometry in
             let availableWidth = geometry.size.width - 32 // Account for padding
             let availableHeight = geometry.size.height - 32
-            let dotsPerRow = Int(availableWidth / (dotSize + spacing))
+            let dotsPerRow = max(1, Int(availableWidth / (dotSize + spacing))) // Ensure minimum 1 column
             let totalRows = Int(ceil(365.0 / Double(dotsPerRow)))
             let gridHeight = CGFloat(totalRows) * (dotSize + spacing) - spacing
             
