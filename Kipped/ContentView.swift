@@ -309,8 +309,8 @@ struct ContentView: View {
                 tintedBackgrounds: $tintedBackgrounds
             )
         }
-        .onChange(of: selectedDate) { _, date in
-            if date != nil {
+        .onChange(of: selectedDate) { oldValue, newValue in
+            if newValue != nil {
                 showingAddNote = true
             }
         }

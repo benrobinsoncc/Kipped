@@ -16,46 +16,113 @@ struct AddPositiveNoteView: View {
     
     @State private var content: String = ""
     @State private var selectedDate: Date = Date()
+    @State private var tempSelectedDate: Date = Date()
+    @State private var showingDatePicker: Bool = false
     @Environment(\.dismiss) private var dismiss
+    
+    private var dateOptions: [Date] {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        var dates: [Date] = []
+        
+        // Generate dates for the past 365 days
+        for i in 0...365 {
+            if let date = calendar.date(byAdding: .day, value: -i, to: today) {
+                dates.append(date)
+            }
+        }
+        return dates
+    }
+    
+    private func formatDateForPicker(_ date: Date) -> String {
+        let calendar = Calendar.current
+        let now = Date()
+        let formatter = DateFormatter()
+        
+        if calendar.isDateInToday(date) {
+            formatter.dateFormat = "MMM d"
+            return "Today, \(formatter.string(from: date))"
+        } else if calendar.isDateInYesterday(date) {
+            formatter.dateFormat = "MMM d"
+            return "Yesterday, \(formatter.string(from: date))"
+        } else {
+            // Check if it's this week
+            let startOfWeek = calendar.dateInterval(of: .weekOfYear, for: now)?.start ?? now
+            let endOfWeek = calendar.dateInterval(of: .weekOfYear, for: now)?.end ?? now
+            
+            if date >= startOfWeek && date < endOfWeek {
+                // Earlier this week
+                formatter.dateFormat = "EEE, MMM d"
+                return formatter.string(from: date)
+            } else {
+                // Check if it's last week
+                let lastWeekStart = calendar.date(byAdding: .weekOfYear, value: -1, to: startOfWeek) ?? now
+                if date >= lastWeekStart && date < startOfWeek {
+                    // Last week
+                    formatter.dateFormat = "EEE, MMM d"
+                    let fullDate = formatter.string(from: date)
+                    let components = fullDate.split(separator: ",")
+                    if let dayPart = components.first {
+                        return "Last \(dayPart), \(components.dropFirst().joined(separator: ","))"
+                    }
+                    return fullDate
+                } else {
+                    // Earlier than that
+                    formatter.dateFormat = "EEE, MMM d"
+                    return formatter.string(from: date)
+                }
+            }
+        }
+    }
     
     private var isEditing: Bool {
         noteToEdit != nil
     }
     
     private var dateString: String {
+        let calendar = Calendar.current
+        let now = Date()
         let formatter = DateFormatter()
-        if Calendar.current.isDateInToday(selectedDate) {
-            return "Today"
-        } else if Calendar.current.isDateInYesterday(selectedDate) {
-            return "Yesterday"
+        
+        if calendar.isDateInToday(selectedDate) {
+            formatter.dateFormat = "MMM d"
+            return "Today, \(formatter.string(from: selectedDate))"
+        } else if calendar.isDateInYesterday(selectedDate) {
+            formatter.dateFormat = "MMM d"
+            return "Yesterday, \(formatter.string(from: selectedDate))"
         } else {
-            formatter.dateStyle = .full
-            return formatter.string(from: selectedDate)
+            // Check if it's this week
+            let startOfWeek = calendar.dateInterval(of: .weekOfYear, for: now)?.start ?? now
+            let endOfWeek = calendar.dateInterval(of: .weekOfYear, for: now)?.end ?? now
+            
+            if selectedDate >= startOfWeek && selectedDate < endOfWeek {
+                // Earlier this week
+                formatter.dateFormat = "EEE, MMM d"
+                return formatter.string(from: selectedDate)
+            } else {
+                // Check if it's last week
+                let lastWeekStart = calendar.date(byAdding: .weekOfYear, value: -1, to: startOfWeek) ?? now
+                if selectedDate >= lastWeekStart && selectedDate < startOfWeek {
+                    // Last week
+                    formatter.dateFormat = "EEE, MMM d"
+                    let fullDate = formatter.string(from: selectedDate)
+                    let components = fullDate.split(separator: ",")
+                    if let dayPart = components.first {
+                        return "Last \(dayPart), \(components.dropFirst().joined(separator: ","))"
+                    }
+                    return fullDate
+                } else {
+                    // Earlier than that
+                    formatter.dateFormat = "EEE, MMM d"
+                    return formatter.string(from: selectedDate)
+                }
+            }
         }
     }
     
     var body: some View {
         NavigationView {
             VStack(spacing: 24) {
-                // Date selector
-                VStack(spacing: 8) {
-                    Text("Date")
-                        .appFont(selectedFont)
-                        .font(.headline)
-                        .foregroundColor(.secondary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    
-                    DatePicker(
-                        "",
-                        selection: $selectedDate,
-                        in: ...Date(),
-                        displayedComponents: .date
-                    )
-                    .datePickerStyle(.compact)
-                    .tint(accentColor)
-                    .disabled(isEditing) // Can't change date when editing
-                }
-                
                 // Content input
                 VStack(spacing: 8) {
                     Text("What's something positive that happened?")
@@ -118,7 +185,6 @@ struct AddPositiveNoteView: View {
                 .opacity(content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.5 : 1.0)
             }
             .padding()
-            .navigationTitle(isEditing ? "Edit Note" : "Add Positive Note")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
@@ -127,7 +193,62 @@ struct AddPositiveNoteView: View {
                     }
                     .appFont(selectedFont)
                 }
+                
+                ToolbarItem(placement: .principal) {
+                    if isEditing {
+                        Text("Edit Note")
+                            .appFont(selectedFont)
+                            .font(.headline)
+                            .fontWeight(.semibold)
+                    } else {
+                        Button(action: {
+                            tempSelectedDate = Calendar.current.startOfDay(for: selectedDate)
+                            showingDatePicker = true
+                        }) {
+                            HStack(spacing: 4) {
+                                Text(dateString)
+                                    .appFont(selectedFont)
+                                    .font(.headline)
+                                    .fontWeight(.semibold)
+                                Image(systemName: "chevron.down")
+                                    .font(.caption)
+                                    .fontWeight(.medium)
+                            }
+                            .foregroundColor(.primary)
+                        }
+                    }
+                }
             }
+        }
+        .sheet(isPresented: $showingDatePicker) {
+            NavigationView {
+                VStack {
+                    DatePicker(
+                        "",
+                        selection: $tempSelectedDate,
+                        in: ...Date(),
+                        displayedComponents: .date
+                    )
+                    .datePickerStyle(.wheel)
+                    .labelsHidden()
+                    .environment(\.font, .title)
+                    
+                    Spacer()
+                }
+                .padding()
+                .navigationTitle("Select Date")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button("Done") {
+                            selectedDate = tempSelectedDate
+                            showingDatePicker = false
+                        }
+                        .appFont(selectedFont)
+                    }
+                }
+            }
+            .presentationDetents([.fraction(0.3)])
         }
         .onAppear {
             setupInitialValues()
@@ -137,13 +258,15 @@ struct AddPositiveNoteView: View {
     private func setupInitialValues() {
         if let note = noteToEdit {
             content = note.content
-            selectedDate = note.date
+            selectedDate = Calendar.current.startOfDay(for: note.date)
         } else if let date = dateToEdit {
-            selectedDate = date
+            selectedDate = Calendar.current.startOfDay(for: date)
             // Pre-fill if there's already a note for this date
             if let existingNote = viewModel.getNoteForDate(date) {
                 content = existingNote.content
             }
+        } else {
+            selectedDate = Calendar.current.startOfDay(for: Date())
         }
     }
     
