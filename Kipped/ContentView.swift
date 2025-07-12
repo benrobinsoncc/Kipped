@@ -205,6 +205,7 @@ struct ContentView: View {
                                 )
                             }
                         }
+                        .padding(.top, -80) // Reduce gap between navigation and content
                         .transition(.opacity.combined(with: .scale(scale: 0.98)))
                     }
                     .toolbar {

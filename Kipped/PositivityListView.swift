@@ -61,6 +61,7 @@ struct PositivityListView: View {
                 }
             }
         }
+        .padding(.top, 40) // Match spacing with YearView and MonthView
     }
     
     private var sortedMonthGroups: [(key: Date, value: [PositiveNote])] {

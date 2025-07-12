@@ -94,7 +94,6 @@ struct MonthView: View {
                 
                 Spacer()
             }
-            .padding(.top, 20)
         }
     }
 }
