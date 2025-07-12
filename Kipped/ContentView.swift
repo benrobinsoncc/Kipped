@@ -167,7 +167,7 @@ struct ContentView: View {
                                     tintedBackgrounds: tintedBackgrounds,
                                     colorScheme: currentColorScheme
                                 )
-                                .frame(height: geometry.size.height - 120) // Constrain year/month views
+                                .frame(height: geometry.size.height - 120) // Match MonthView constraint
                             case .month:
                                 MonthView(
                                     viewModel: viewModel,

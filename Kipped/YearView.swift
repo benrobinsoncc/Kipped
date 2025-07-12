@@ -17,9 +17,8 @@ struct YearView: View {
     
     @State private var hoveredDate: Date?
     
-    private let columns = 15 // Adjusted for better full screen layout
-    private let dotSize: CGFloat = 16
-    private let spacing: CGFloat = 6
+    private let dotSize: CGFloat = 12
+    private let spacing: CGFloat = 8
     
     private var year: Int {
         Calendar.current.component(.year, from: Date())
@@ -38,16 +37,37 @@ struct YearView: View {
         return calendar.dateComponents([.day], from: startOfYear, to: endOfYear).day!
     }
     
+    private func calculateOptimalDotsPerRow(maxDotsPerRow: Int, maxRows: Int) -> Int {
+        // Target 13 dots per row, but ensure we can fit all 365 dots
+        let targetDotsPerRow = 13
+        let actualDotsPerRow = min(targetDotsPerRow, maxDotsPerRow)
+        let requiredRows = Int(ceil(365.0 / Double(actualDotsPerRow)))
+        
+        // If we can fit the required rows, use the target
+        if requiredRows <= maxRows {
+            return actualDotsPerRow
+        }
+        
+        // Otherwise, calculate minimum needed to fit all dots
+        return max(actualDotsPerRow, Int(ceil(365.0 / Double(maxRows))))
+    }
+    
     var body: some View {
         GeometryReader { geometry in
-            let availableWidth = geometry.size.width - 32 // Account for padding
-            let availableHeight = geometry.size.height - 32
-            let dotsPerRow = max(1, Int(availableWidth / (dotSize + spacing))) // Ensure minimum 1 column
-            let totalRows = Int(ceil(365.0 / Double(dotsPerRow)))
-            let gridHeight = CGFloat(totalRows) * (dotSize + spacing) - spacing
+            let availableWidth = geometry.size.width - 32 // Match MonthView padding
+            let availableHeight = geometry.size.height - 40 // Match MonthView padding
             
-            ScrollView {
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: spacing), count: dotsPerRow), spacing: spacing) {
+            // Calculate optimal grid layout to fill vertical space
+            let maxDotsPerRow = max(1, Int(availableWidth / (dotSize + spacing)))
+            let maxRows = max(1, Int(availableHeight / (dotSize + spacing)))
+            
+            // Find the best combination of rows and columns to fit 365 dots
+            let bestDotsPerRow = calculateOptimalDotsPerRow(maxDotsPerRow: maxDotsPerRow, maxRows: maxRows)
+            let bestRows = Int(ceil(365.0 / Double(bestDotsPerRow)))
+            let gridHeight = CGFloat(bestRows) * (dotSize + spacing) - spacing
+            
+            VStack {
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: spacing), count: bestDotsPerRow), spacing: spacing) {
                     ForEach(Array(yearDates.enumerated()), id: \.element) { dayIndex, date in
                         let daysSinceOnboarding = viewModel.daysSinceOnboarding()
                         let isCurrentDay = dayIndex == daysSinceOnboarding
@@ -60,6 +80,7 @@ struct YearView: View {
                             isFuture: isFutureDay,
                             accentColor: accentColor,
                             isHovered: hoveredDate == date,
+                            dotSize: dotSize,
                             tintedBackgrounds: tintedBackgrounds,
                             colorScheme: colorScheme
                         )
@@ -74,8 +95,9 @@ struct YearView: View {
                         }
                     }
                 }
-                .padding(.horizontal, 16)
-                .frame(minHeight: min(gridHeight, availableHeight))
+                .padding(.horizontal, 32)
+                
+                Spacer()
             }
         }
     }
@@ -140,7 +162,7 @@ struct DayDotView: View {
         .scaleEffect(isHovered ? 1.3 : 1.0)
         .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isHovered)
         .onAppear {
-            withAnimation(.spring(response: 0.5, dampingFraction: 0.7).delay(Double.random(in: 0...0.3))) {
+            withAnimation(.spring(response: 0.8, dampingFraction: 0.7).delay(Double.random(in: 0...0.5))) {
                 animateIn = true
             }
         }
