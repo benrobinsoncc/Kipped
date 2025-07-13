@@ -487,8 +487,8 @@ struct DayDotView: View {
             
             if isToday {
                 Circle()
-                    .stroke(accentColor, lineWidth: max(dotSize * 0.125, 2))
-                    .frame(width: dotSize + 4, height: dotSize + 4)
+                    .stroke(accentColor, lineWidth: max(dotSize * 0.08, 1))
+                    .frame(width: dotSize + 2, height: dotSize + 2)
             }
         }
         .onAppear {
