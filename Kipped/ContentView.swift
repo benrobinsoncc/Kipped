@@ -91,6 +91,7 @@ struct ContentView: View {
     @Binding var hapticsEnabled: Bool
     @Binding var selectedFont: FontOption
     @Binding var tintedBackgrounds: Bool
+    @Binding var showAddEntry: Bool
     
     private var currentColorScheme: ColorScheme? {
         switch appTheme {
@@ -426,6 +427,13 @@ struct ContentView: View {
         .onChange(of: selectedDate) { oldValue, newValue in
             if newValue != nil {
                 showingAddNote = true
+            }
+        }
+        .onChange(of: showAddEntry) { _, newValue in
+            if newValue {
+                selectedDate = Date()
+                showingAddNote = true
+                showAddEntry = false
             }
         }
         .onAppear {

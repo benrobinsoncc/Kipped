@@ -75,6 +75,7 @@ struct KippedApp: App {
     @State private var hapticsEnabled: Bool = KippedApp.loadHapticsEnabled()
     @State private var selectedFont: FontOption = KippedApp.loadFont()
     @State private var tintedBackgrounds: Bool = KippedApp.loadTintedBackgrounds()
+    @State private var showAddEntry = false
 
     private var colorScheme: ColorScheme? {
         switch appTheme {
@@ -100,7 +101,7 @@ struct KippedApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView(appTheme: $appTheme, accentColor: $accentColor, notificationsEnabled: $notificationsEnabled, hapticsEnabled: $hapticsEnabled, selectedFont: $selectedFont, tintedBackgrounds: $tintedBackgrounds)
+            ContentView(appTheme: $appTheme, accentColor: $accentColor, notificationsEnabled: $notificationsEnabled, hapticsEnabled: $hapticsEnabled, selectedFont: $selectedFont, tintedBackgrounds: $tintedBackgrounds, showAddEntry: $showAddEntry)
                 .preferredColorScheme(colorScheme)
                 .accentColor(accentColor)
                 .onChange(of: appTheme) { newTheme in
@@ -120,6 +121,11 @@ struct KippedApp: App {
                 }
                 .onChange(of: notificationsEnabled) { newValue in
                     KippedApp.saveNotificationsEnabled(newValue)
+                }
+                .onOpenURL { url in
+                    if url.absoluteString == "kipped://add-entry" {
+                        showAddEntry = true
+                    }
                 }
         }
     }
@@ -147,6 +153,33 @@ struct KippedApp: App {
         let uiColor = UIColor(color)
         if let data = try? NSKeyedArchiver.archivedData(withRootObject: uiColor, requiringSecureCoding: false) {
             UserDefaults.standard.set(data, forKey: accentColorKey)
+            
+            // Also save color name for widget
+            let allColors = MaterialColorCategory.allColors.map { $0.color }
+            let colorNames = ["red", "pink", "purple", "deeppurple", "indigo", "blue", "lightblue", "cyan", "teal", "green", "lightgreen", "lime", "yellow", "amber", "orange", "deeporange", "brown", "grey", "bluegrey"]
+            
+            var closestColorName = "blue"
+            var smallestDistance = CGFloat.greatestFiniteMagnitude
+            
+            for (index, availableColor) in allColors.enumerated() {
+                let availableUIColor = UIColor(availableColor)
+                var availR: CGFloat = 0, availG: CGFloat = 0, availB: CGFloat = 0, availA: CGFloat = 0
+                availableUIColor.getRed(&availR, green: &availG, blue: &availB, alpha: &availA)
+                
+                var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, alpha: CGFloat = 0
+                uiColor.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
+                
+                // Calculate color distance
+                let distance = sqrt(pow(red - availR, 2) + pow(green - availG, 2) + pow(blue - availB, 2))
+                if distance < smallestDistance {
+                    smallestDistance = distance
+                    closestColorName = colorNames[index]
+                }
+            }
+            
+            if let sharedDefaults = UserDefaults(suiteName: "group.com.yourcompany.kipped") {
+                sharedDefaults.set(closestColorName, forKey: "selectedAccentColor")
+            }
         }
     }
 

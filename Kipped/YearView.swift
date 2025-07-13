@@ -252,24 +252,25 @@ struct YearView: View {
                     .onChanged { value in
                         dragHandler?(value.location)
                     }
-                    .onEnded { _ in
+                    .onEnded { value in
+                        // Check if it's a tap (minimal movement)
+                        if abs(value.translation.width) < 5 && abs(value.translation.height) < 5 {
+                            // Handle tap with location
+                            if let monthIndex = getMonthIndexFromLocation(value.location) {
+                                let calendar = Calendar.current
+                                let year = calendar.component(.year, from: Date())
+                                if let monthDate = calendar.date(from: DateComponents(year: year, month: monthIndex + 1, day: 1)) {
+                                    currentMonth = monthDate
+                                    HapticsManager.shared.impact(.soft)
+                                    withAnimation(.easeInOut(duration: 0.2)) {
+                                        viewMode = .month
+                                    }
+                                }
+                            }
+                        }
                         dragEndHandler?()
                     }
             )
-            .onTapGesture { location in
-                // Simple tap to select month
-                if let monthIndex = getMonthIndexFromLocation(location) {
-                    let calendar = Calendar.current
-                    let year = calendar.component(.year, from: Date())
-                    if let monthDate = calendar.date(from: DateComponents(year: year, month: monthIndex + 1, day: 1)) {
-                        currentMonth = monthDate
-                        HapticsManager.shared.impact(.soft)
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            viewMode = .month
-                        }
-                    }
-                }
-            }
         }
         .onAppear {
             updateNoteCache()
@@ -416,6 +417,32 @@ struct DayDotView: View {
     
     @State private var animateIn = false
     
+    private let celebratoryIcons = [
+        "star.fill",
+        "heart.fill",
+        "sun.max.fill",
+        "sparkles",
+        "crown.fill",
+        "party.popper.fill",
+        "gift.fill",
+        "balloon.fill",
+        "trophy.fill",
+        "medal.fill",
+        "rosette",
+        "hands.clap.fill",
+        "flame.fill",
+        "bolt.fill",
+        "moon.stars.fill"
+    ]
+    
+    private func celebratoryIcon(for date: Date) -> String {
+        let calendar = Calendar.current
+        let day = calendar.component(.day, from: date)
+        let month = calendar.component(.month, from: date)
+        let index = (day + month) % celebratoryIcons.count
+        return celebratoryIcons[index]
+    }
+    
     init(date: Date, hasNote: Bool, isToday: Bool, isFuture: Bool, accentColor: Color, isHovered: Bool, dotSize: CGFloat = 16, tintedBackgrounds: Bool, colorScheme: ColorScheme?, skipAnimation: Bool = false) {
         self.date = date
         self.hasNote = hasNote
@@ -448,7 +475,7 @@ struct DayDotView: View {
                 .opacity(animateIn ? 1 : 0)
             
             if hasNote {
-                Image(systemName: "checkmark")
+                Image(systemName: celebratoryIcon(for: date))
                     .font(.system(size: max(dotSize * 0.5, 8), weight: .bold))
                     .foregroundColor(.white)
                     .scaleEffect(animateIn ? 1 : 0)

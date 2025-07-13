@@ -135,8 +135,43 @@ class PositiveNoteViewModel: ObservableObject {
         do {
             let data = try JSONEncoder().encode(notes)
             UserDefaults.standard.set(data, forKey: notesKey)
+            
+            // Update filled days for widget
+            updateFilledDaysForWidget()
         } catch {
             print("Failed to save notes: \(error)")
+        }
+    }
+    
+    private func updateFilledDaysForWidget() {
+        // Group notes by month and year
+        var filledDaysByMonth: [String: [Int]] = [:]
+        let calendar = Calendar.current
+        
+        for note in notes {
+            let year = calendar.component(.year, from: note.date)
+            let month = calendar.component(.month, from: note.date)
+            let day = calendar.component(.day, from: note.date)
+            
+            let key = "filledDays_\(year)_\(month)"
+            if filledDaysByMonth[key] == nil {
+                filledDaysByMonth[key] = []
+            }
+            filledDaysByMonth[key]?.append(day)
+        }
+        
+        // Save to shared UserDefaults
+        if let sharedDefaults = UserDefaults(suiteName: "group.com.yourcompany.kipped") {
+            // Clear old data first
+            let allKeys = sharedDefaults.dictionaryRepresentation().keys.filter { $0.starts(with: "filledDays_") }
+            for key in allKeys {
+                sharedDefaults.removeObject(forKey: key)
+            }
+            
+            // Save new data
+            for (key, days) in filledDaysByMonth {
+                sharedDefaults.set(Array(Set(days)), forKey: key)
+            }
         }
     }
     
