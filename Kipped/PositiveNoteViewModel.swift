@@ -77,6 +77,35 @@ class PositiveNoteViewModel: ObservableObject {
         }
     }
     
+    func updateNote(_ note: PositiveNote, newContent: String, newDate: Date) {
+        // Normalize the new date
+        let normalizedNewDate = Calendar.current.startOfDay(for: newDate)
+        
+        // Find and remove the old note
+        guard let oldIndex = notes.firstIndex(where: { $0.id == note.id }) else { return }
+        notes.remove(at: oldIndex)
+        
+        // Check if a note already exists for the new date
+        if let existingIndex = notes.firstIndex(where: { 
+            Calendar.current.isDate($0.date, inSameDayAs: normalizedNewDate) 
+        }) {
+            // Replace the existing note for that date
+            notes[existingIndex].content = newContent
+            notes[existingIndex].date = normalizedNewDate
+            lastCreatedNoteId = notes[existingIndex].id
+        } else {
+            // Create a new note with the updated date
+            let updatedNote = PositiveNote(
+                id: note.id,
+                content: newContent,
+                date: normalizedNewDate,
+                createdAt: note.createdAt
+            )
+            notes.append(updatedNote)
+            lastCreatedNoteId = updatedNote.id
+        }
+    }
+    
     func deleteNote(_ note: PositiveNote) {
         notes.removeAll { $0.id == note.id }
     }

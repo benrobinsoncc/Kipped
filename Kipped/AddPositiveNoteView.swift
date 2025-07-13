@@ -14,11 +14,27 @@ struct AddPositiveNoteView: View {
     @Binding var accentColor: Color
     @Binding var selectedFont: FontOption
     
-    @State private var content: String = ""
+    @State private var content: String
     @State private var selectedDate: Date = Date()
     @State private var tempSelectedDate: Date = Date()
     @State private var showingDatePicker: Bool = false
     @Environment(\.dismiss) private var dismiss
+    @FocusState private var isTextEditorFocused: Bool
+    
+    init(viewModel: PositiveNoteViewModel, noteToEdit: PositiveNote? = nil, dateToEdit: Date? = nil, accentColor: Binding<Color>, selectedFont: Binding<FontOption>) {
+        self.viewModel = viewModel
+        self.noteToEdit = noteToEdit
+        self.dateToEdit = dateToEdit
+        self._accentColor = accentColor
+        self._selectedFont = selectedFont
+        
+        // Initialize content based on whether we're editing or creating
+        if let note = noteToEdit {
+            self._content = State(initialValue: note.content)
+        } else {
+            self._content = State(initialValue: "")
+        }
+    }
     
     private var dateOptions: [Date] {
         let calendar = Calendar.current
@@ -122,90 +138,70 @@ struct AddPositiveNoteView: View {
     
     var body: some View {
         NavigationView {
-            VStack(spacing: 24) {
-                // Content input
-                VStack(spacing: 8) {
-                    Text("What's something positive that happened?")
-                        .appFont(selectedFont)
-                        .font(.headline)
-                        .foregroundColor(.secondary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    
-                    TextEditor(text: $content)
-                        .appFont(selectedFont)
-                        .background(Color(UIColor.secondarySystemBackground))
-                        .cornerRadius(12)
-                        .frame(minHeight: 120)
-                }
-                
-                // Inspiration prompts
-                if content.isEmpty {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Need inspiration? Try these:")
-                            .appFont(selectedFont)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        
-                        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
-                            ForEach(inspirationPrompts, id: \.self) { prompt in
-                                Button(action: {
-                                    content = prompt
-                                    HapticsManager.shared.impact(.soft)
-                                }) {
-                                    Text(prompt)
-                                        .appFont(selectedFont)
-                                        .font(.caption)
-                                        .foregroundColor(accentColor)
-                                        .padding(.horizontal, 12)
-                                        .padding(.vertical, 6)
-                                        .background(accentColor.opacity(0.1))
-                                        .cornerRadius(16)
-                                }
-                                .buttonStyle(PlainButtonStyle())
+            ZStack {
+                // Main content
+                ScrollView {
+                    VStack(spacing: 24) {
+                        // Content input
+                        ZStack(alignment: .topLeading) {
+                            TextEditor(text: $content)
+                                .appFont(selectedFont)
+                                .background(Color(UIColor.secondarySystemBackground))
+                                .cornerRadius(12)
+                                .frame(minHeight: 120)
+                                .focused($isTextEditorFocused)
+                            
+                            // Placeholder text
+                            if content.isEmpty {
+                                Text("What made you happy today?")
+                                    .appFont(selectedFont)
+                                    .foregroundColor(.secondary.opacity(0.6))
+                                    .padding(.horizontal, 5)
+                                    .padding(.vertical, 8)
+                                    .allowsHitTesting(false)
                             }
                         }
+                        
+                        
+                        // Spacer to prevent content from being hidden under save button
+                        Color.clear
+                            .frame(height: 80)
                     }
-                    .padding(.top, 8)
+                    .padding()
                 }
                 
-                Spacer()
-                
-                // Save button with skeuomorphic style
-                HStack {
+                // Fixed save button overlay at bottom
+                VStack {
                     Spacer()
-                    SkeuomorphicSaveButton(
-                        accentColor: accentColor,
-                        isEnabled: !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-                        action: saveNote
-                    )
-                    Spacer()
+                    HStack {
+                        Spacer()
+                        SkeuomorphicSaveButton(
+                            accentColor: accentColor,
+                            isEnabled: !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                            action: saveNote
+                        )
+                        Spacer()
+                    }
+                    .padding()
                 }
             }
-            .padding()
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .principal) {
-                    if isEditing {
-                        Text("Edit Note")
-                            .appFont(selectedFont)
-                            .font(.headline)
-                            .fontWeight(.semibold)
-                    } else {
-                        Button(action: {
-                            tempSelectedDate = Calendar.current.startOfDay(for: selectedDate)
-                            showingDatePicker = true
-                        }) {
-                            HStack(spacing: 4) {
-                                Text(dateString)
-                                    .appFont(selectedFont)
-                                    .font(.headline)
-                                    .fontWeight(.semibold)
-                                Image(systemName: "chevron.down")
-                                    .font(.caption)
-                                    .fontWeight(.medium)
-                            }
-                            .foregroundColor(.primary)
+                    Button(action: {
+                        tempSelectedDate = Calendar.current.startOfDay(for: selectedDate)
+                        showingDatePicker = true
+                    }) {
+                        HStack(spacing: 4) {
+                            Text(dateString)
+                                .appFont(selectedFont)
+                                .font(.headline)
+                                .fontWeight(.semibold)
+                            Image(systemName: "chevron.down")
+                                .font(.caption)
+                                .fontWeight(.medium)
                         }
+                        .foregroundColor(.primary)
                     }
                 }
             }
@@ -286,19 +282,18 @@ struct AddPositiveNoteView: View {
         }
         .onAppear {
             setupInitialValues()
+            // Focus the text editor after a slight delay to ensure the view is loaded
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                isTextEditorFocused = true
+            }
         }
     }
     
     private func setupInitialValues() {
         if let note = noteToEdit {
-            content = note.content
             selectedDate = Calendar.current.startOfDay(for: note.date)
         } else if let date = dateToEdit {
             selectedDate = Calendar.current.startOfDay(for: date)
-            // Pre-fill if there's already a note for this date
-            if let existingNote = viewModel.getNoteForDate(date) {
-                content = existingNote.content
-            }
         } else {
             selectedDate = Calendar.current.startOfDay(for: Date())
         }
@@ -309,25 +304,19 @@ struct AddPositiveNoteView: View {
         guard !trimmedContent.isEmpty else { return }
         
         if let note = noteToEdit {
-            viewModel.updateNote(note, newContent: trimmedContent)
+            // Check if the date has changed
+            if !Calendar.current.isDate(note.date, inSameDayAs: selectedDate) {
+                // Date has changed, use the method that handles date updates
+                viewModel.updateNote(note, newContent: trimmedContent, newDate: selectedDate)
+            } else {
+                // Only content has changed
+                viewModel.updateNote(note, newContent: trimmedContent)
+            }
         } else {
             viewModel.addNote(content: trimmedContent, for: selectedDate)
         }
         
         HapticsManager.shared.impact(.medium)
         dismiss()
-    }
-    
-    private var inspirationPrompts: [String] {
-        [
-            "Someone made me smile",
-            "I felt grateful for...",
-            "I accomplished something",
-            "I learned something new",
-            "I helped someone",
-            "Beautiful weather today",
-            "Good food/coffee",
-            "Made progress on a goal"
-        ]
     }
 }
