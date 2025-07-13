@@ -16,6 +16,9 @@ struct PositivityListView: View {
     let tintedBackgrounds: Bool
     let colorScheme: ColorScheme?
     
+    @Environment(\.dragHandler) private var dragHandler
+    @Environment(\.dragEndHandler) private var dragEndHandler
+    
     private var tintedSecondaryBackground: Color {
         Color.tintedSecondaryBackground(accentColor: accentColor, isEnabled: tintedBackgrounds, colorScheme: colorScheme)
     }
@@ -62,6 +65,16 @@ struct PositivityListView: View {
             }
         }
         .padding(.top, 40) // Match spacing with YearView and MonthView
+        .contentShape(Rectangle())
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { value in
+                    dragHandler?(value.location)
+                }
+                .onEnded { _ in
+                    dragEndHandler?()
+                }
+        )
     }
     
     private var sortedMonthGroups: [(key: Date, value: [PositiveNote])] {

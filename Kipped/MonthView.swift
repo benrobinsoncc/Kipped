@@ -20,6 +20,8 @@ struct MonthView: View {
     let skipAnimation: Bool
     
     @State private var hoveredDate: Date?
+    @Environment(\.dragHandler) private var dragHandler
+    @Environment(\.dragEndHandler) private var dragEndHandler
     
     private let dotsPerRow = 5 // Same as YearView's MonthDotGrid
     
@@ -120,6 +122,16 @@ struct MonthView: View {
                 
                 Spacer()
             }
+            .contentShape(Rectangle())
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { value in
+                        dragHandler?(value.location)
+                    }
+                    .onEnded { _ in
+                        dragEndHandler?()
+                    }
+            )
         }
     }
     

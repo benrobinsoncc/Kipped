@@ -21,100 +21,90 @@ struct YearView: View {
     let colorScheme: ColorScheme?
     let animationNamespace: Namespace.ID
     let containerSize: CGSize
+    let pinchUnitPoint: UnitPoint
     
-    @State private var hoveredDate: Date?
-    @State private var monthFrames: [Int: CGRect] = [:]
-    @State private var selectedMonthForZoom: Int? = nil
+    @Environment(\.dragHandler) private var dragHandler
+    @Environment(\.dragEndHandler) private var dragEndHandler
+    
+    @State private var noteDatesCache: Set<DateComponents> = []
+    @State private var todayComponents: DateComponents = Calendar.current.dateComponents([.year, .month, .day], from: Date())
     
     private let dotSize: CGFloat = 10
     private let spacing: CGFloat = 10
     private let monthGap: CGFloat = 24
+    private let today = Date()
     
-    private func calculateZoomParameters(for monthIndex: Int) {
-        // Set navigation flag and selected month
-        navigatedViaZoom = true
-        selectedMonthForZoom = monthIndex
-        
-        // Calculate the position of the month in the grid
-        let row = monthIndex / 3
-        let col = monthIndex % 3
-        
-        // Estimate the position based on grid layout
-        let monthWidth = (containerSize.width - 32 - 40) / 3 // 3 columns with spacing
-        let monthHeight: CGFloat = 150 // Approximate height
-        
-        let monthCenterX = 16 + monthWidth * CGFloat(col) + monthWidth / 2 + CGFloat(col) * 20
-        let monthCenterY = 40 + monthHeight * CGFloat(row) + monthHeight / 2 + CGFloat(row) * 24
-        
-        // Calculate offset to center the month
-        let screenCenterX = containerSize.width / 2
-        let screenCenterY = (containerSize.height - 120) / 2
-        
-        let offsetX = screenCenterX - monthCenterX
-        let offsetY = screenCenterY - monthCenterY
-        
-        // Set zoom scale to fill screen with the month
-        let targetScale: CGFloat = 4.2
-        
-        // Phase 1: Start zooming with smooth bezier curve
-        withAnimation(.timingCurve(0.32, 0, 0.24, 1, duration: 0.8)) {
-            zoomScale = targetScale
-            zoomOffset = CGSize(width: offsetX * targetScale, height: offsetY * targetScale)
-        }
-        
-        // Phase 2: Switch view at 70% of the animation
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.56) {
-            viewMode = .month
-        }
-        
-        // Phase 3: Complete the transition with matching curve
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.58) {
-            withAnimation(.timingCurve(0.32, 0, 0.24, 1, duration: 0.4)) {
-                zoomScale = 1.0
-                zoomOffset = .zero
-            }
-            
-            // Reset flags after full animation
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                navigatedViaZoom = false
-                selectedMonthForZoom = nil
-            }
-        }
+    // Fast lookup for note existence
+    private func updateNoteCache() {
+        let calendar = Calendar.current
+        noteDatesCache = Set(viewModel.notes.map { note in
+            calendar.dateComponents([.year, .month, .day], from: note.date)
+        })
     }
+    
+    private func hasNote(for date: Date) -> Bool {
+        let calendar = Calendar.current
+        let components = calendar.dateComponents([.year, .month, .day], from: date)
+        return noteDatesCache.contains(components)
+    }
+    
+    private func isToday(_ date: Date) -> Bool {
+        let calendar = Calendar.current
+        let components = calendar.dateComponents([.year, .month, .day], from: date)
+        return components.year == todayComponents.year &&
+               components.month == todayComponents.month &&
+               components.day == todayComponents.day
+    }
+    
+    private func getMonthIndexFromLocation(_ location: CGPoint) -> Int? {
+        // Simple grid calculation - 3 columns, 4 rows
+        let availableWidth = containerSize.width - 32 - 40
+        let monthWidth = availableWidth / 3
+        let monthHeight: CGFloat = 140
+        let verticalSpacing: CGFloat = 24
+        
+        // Adjust for padding
+        let adjustedX = location.x - 16
+        let adjustedY = location.y
+        
+        // Calculate grid position
+        let col = Int(adjustedX / (monthWidth + 20))
+        let row = Int(adjustedY / (monthHeight + verticalSpacing))
+        
+        // Validate bounds
+        if col < 0 || col > 2 || row < 0 || row > 3 {
+            // Default to center month (May) if out of bounds
+            return 4
+        }
+        
+        let monthIndex = row * 3 + col
+        return min(monthIndex, 11)
+    }
+    
     
     private var year: Int {
         Calendar.current.component(.year, from: Date())
     }
     
-    private var yearDates: [Date] {
+    // Cache the expensive date calculations
+    private let datesByMonth: [[Date]] = {
         let calendar = Calendar.current
-        let startOfYear = calendar.date(from: DateComponents(year: year, month: 1, day: 1))!
-        let endOfYear = calendar.date(from: DateComponents(year: year, month: 12, day: 31))!
-        
-        var dates: [Date] = []
-        var currentDate = startOfYear
-        
-        while currentDate <= endOfYear {
-            dates.append(currentDate)
-            currentDate = calendar.date(byAdding: .day, value: 1, to: currentDate)!
-        }
-        
-        return dates
-    }
-    
-    private var datesByMonth: [[Date]] {
-        let calendar = Calendar.current
+        let year = calendar.component(.year, from: Date())
         var monthArrays: [[Date]] = Array(repeating: [], count: 12)
         
-        for date in yearDates {
-            let month = calendar.component(.month, from: date) - 1
-            if month >= 0 && month < 12 {
-                monthArrays[month].append(date)
+        for month in 1...12 {
+            let startOfMonth = calendar.date(from: DateComponents(year: year, month: month, day: 1))!
+            let range = calendar.range(of: .day, in: .month, for: startOfMonth)!
+            
+            for day in 1...range.count {
+                if let date = calendar.date(byAdding: .day, value: day - 1, to: startOfMonth) {
+                    monthArrays[month - 1].append(date)
+                }
             }
         }
         
         return monthArrays
-    }
+    }()
     
     var body: some View {
         GeometryReader { geometry in
@@ -128,22 +118,25 @@ struct YearView: View {
                                 monthIndex: col,
                                 viewModel: viewModel,
                                 selectedDate: $selectedDate,
-                                hoveredDate: $hoveredDate,
                                 accentColor: accentColor,
                                 dotSize: 10,
                                 spacing: 10,
                                 tintedBackgrounds: tintedBackgrounds,
                                 colorScheme: colorScheme,
                                 animationNamespace: animationNamespace,
-                                isZooming: selectedMonthForZoom == col,
-                                selectedMonthForZoom: selectedMonthForZoom,
+                                noteDatesCache: noteDatesCache,
+                                todayComponents: todayComponents,
+                                today: today,
+                                viewMode: viewMode,
                                 onTap: {
                                     let calendar = Calendar.current
                                     let year = calendar.component(.year, from: Date())
                                     if let monthDate = calendar.date(from: DateComponents(year: year, month: col + 1, day: 1)) {
                                         currentMonth = monthDate
-                                        calculateZoomParameters(for: col)
                                         HapticsManager.shared.impact(.soft)
+                                        withAnimation(.easeInOut(duration: 0.2)) {
+                                            viewMode = .month
+                                        }
                                     }
                                 }
                             )
@@ -158,22 +151,25 @@ struct YearView: View {
                                 monthIndex: monthIndex,
                                 viewModel: viewModel,
                                 selectedDate: $selectedDate,
-                                hoveredDate: $hoveredDate,
                                 accentColor: accentColor,
                                 dotSize: 10,
                                 spacing: 10,
                                 tintedBackgrounds: tintedBackgrounds,
                                 colorScheme: colorScheme,
                                 animationNamespace: animationNamespace,
-                                isZooming: selectedMonthForZoom == monthIndex,
-                                selectedMonthForZoom: selectedMonthForZoom,
+                                noteDatesCache: noteDatesCache,
+                                todayComponents: todayComponents,
+                                today: today,
+                                viewMode: viewMode,
                                 onTap: {
                                     let calendar = Calendar.current
                                     let year = calendar.component(.year, from: Date())
                                     if let monthDate = calendar.date(from: DateComponents(year: year, month: monthIndex + 1, day: 1)) {
                                         currentMonth = monthDate
-                                        calculateZoomParameters(for: monthIndex)
                                         HapticsManager.shared.impact(.soft)
+                                        withAnimation(.easeInOut(duration: 0.2)) {
+                                            viewMode = .month
+                                        }
                                     }
                                 }
                             )
@@ -188,22 +184,25 @@ struct YearView: View {
                                 monthIndex: monthIndex,
                                 viewModel: viewModel,
                                 selectedDate: $selectedDate,
-                                hoveredDate: $hoveredDate,
                                 accentColor: accentColor,
                                 dotSize: 10,
                                 spacing: 10,
                                 tintedBackgrounds: tintedBackgrounds,
                                 colorScheme: colorScheme,
                                 animationNamespace: animationNamespace,
-                                isZooming: selectedMonthForZoom == monthIndex,
-                                selectedMonthForZoom: selectedMonthForZoom,
+                                noteDatesCache: noteDatesCache,
+                                todayComponents: todayComponents,
+                                today: today,
+                                viewMode: viewMode,
                                 onTap: {
                                     let calendar = Calendar.current
                                     let year = calendar.component(.year, from: Date())
                                     if let monthDate = calendar.date(from: DateComponents(year: year, month: monthIndex + 1, day: 1)) {
                                         currentMonth = monthDate
-                                        calculateZoomParameters(for: monthIndex)
                                         HapticsManager.shared.impact(.soft)
+                                        withAnimation(.easeInOut(duration: 0.2)) {
+                                            viewMode = .month
+                                        }
                                     }
                                 }
                             )
@@ -218,22 +217,25 @@ struct YearView: View {
                                 monthIndex: monthIndex,
                                 viewModel: viewModel,
                                 selectedDate: $selectedDate,
-                                hoveredDate: $hoveredDate,
                                 accentColor: accentColor,
                                 dotSize: 10,
                                 spacing: 10,
                                 tintedBackgrounds: tintedBackgrounds,
                                 colorScheme: colorScheme,
                                 animationNamespace: animationNamespace,
-                                isZooming: selectedMonthForZoom == monthIndex,
-                                selectedMonthForZoom: selectedMonthForZoom,
+                                noteDatesCache: noteDatesCache,
+                                todayComponents: todayComponents,
+                                today: today,
+                                viewMode: viewMode,
                                 onTap: {
                                     let calendar = Calendar.current
                                     let year = calendar.component(.year, from: Date())
                                     if let monthDate = calendar.date(from: DateComponents(year: year, month: monthIndex + 1, day: 1)) {
                                         currentMonth = monthDate
-                                        calculateZoomParameters(for: monthIndex)
                                         HapticsManager.shared.impact(.soft)
+                                        withAnimation(.easeInOut(duration: 0.2)) {
+                                            viewMode = .month
+                                        }
                                     }
                                 }
                             )
@@ -244,6 +246,59 @@ struct YearView: View {
                 
                 Spacer()
             }
+            .contentShape(Rectangle())
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { value in
+                        dragHandler?(value.location)
+                    }
+                    .onEnded { _ in
+                        dragEndHandler?()
+                    }
+            )
+            .onTapGesture { location in
+                // Simple tap to select month
+                if let monthIndex = getMonthIndexFromLocation(location) {
+                    let calendar = Calendar.current
+                    let year = calendar.component(.year, from: Date())
+                    if let monthDate = calendar.date(from: DateComponents(year: year, month: monthIndex + 1, day: 1)) {
+                        currentMonth = monthDate
+                        HapticsManager.shared.impact(.soft)
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            viewMode = .month
+                        }
+                    }
+                }
+            }
+        }
+        .onAppear {
+            updateNoteCache()
+        }
+        .onChange(of: viewModel.notes) { _ in
+            updateNoteCache()
+        }
+        .onChange(of: navigatedViaZoom) { zoomed in
+            if zoomed {
+                // Convert unit point to actual location
+                let location = CGPoint(
+                    x: pinchUnitPoint.x * containerSize.width,
+                    y: pinchUnitPoint.y * containerSize.height
+                )
+                
+                // Handle zoom navigation
+                if let monthIndex = getMonthIndexFromLocation(location) {
+                    let calendar = Calendar.current
+                    let year = calendar.component(.year, from: Date())
+                    if let monthDate = calendar.date(from: DateComponents(year: year, month: monthIndex + 1, day: 1)) {
+                        currentMonth = monthDate
+                        HapticsManager.shared.impact(.soft)
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            viewMode = .month
+                        }
+                    }
+                }
+                navigatedViaZoom = false
+            }
         }
     }
 }
@@ -253,64 +308,90 @@ struct MonthDotGrid: View {
     let monthIndex: Int
     let viewModel: PositiveNoteViewModel
     @Binding var selectedDate: Date?
-    @Binding var hoveredDate: Date?
     let accentColor: Color
     let dotSize: CGFloat
     let spacing: CGFloat
     let tintedBackgrounds: Bool
     let colorScheme: ColorScheme?
     let animationNamespace: Namespace.ID
-    let isZooming: Bool
-    let selectedMonthForZoom: Int?
+    let noteDatesCache: Set<DateComponents>
+    let todayComponents: DateComponents
+    let today: Date
+    let viewMode: ViewMode
     let onTap: () -> Void
     
     private let dotsPerRow = 5 // 5 dots per row for better space utilization
     
+    private let monthNames = ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"]
+    
+    private let maxRows = 7 // Maximum rows any month can have (31 days / 5 dots per row = 6.2, rounded up to 7)
+    
+    private func hasNote(for date: Date) -> Bool {
+        let calendar = Calendar.current
+        let components = calendar.dateComponents([.year, .month, .day], from: date)
+        return noteDatesCache.contains(components)
+    }
+    
+    private func isToday(_ date: Date) -> Bool {
+        let calendar = Calendar.current
+        let components = calendar.dateComponents([.year, .month, .day], from: date)
+        return components.year == todayComponents.year &&
+               components.month == todayComponents.month &&
+               components.day == todayComponents.day
+    }
+    
     var body: some View {
         VStack(spacing: spacing) {
-            // Create rows of dots
-            ForEach(0..<numberOfRows, id: \.self) { row in
-                HStack(spacing: spacing) {
-                    ForEach(0..<dotsPerRow, id: \.self) { col in
-                        let index = row * dotsPerRow + col
-                        if index < dates.count {
-                            let date = dates[index]
-                            let calendar = Calendar.current
-                            let today = Date()
-                            let isToday = calendar.isDateInToday(date)
-                            let isFutureDay = date > today
-                            
-                            DayDotView(
-                                date: date,
-                                hasNote: viewModel.hasNoteForDate(date),
-                                isToday: isToday,
-                                isFuture: isFutureDay,
-                                accentColor: accentColor,
-                                isHovered: hoveredDate == date,
-                                dotSize: dotSize, // Full size dots
-                                tintedBackgrounds: tintedBackgrounds,
-                                colorScheme: colorScheme
-                            )
-                            .allowsHitTesting(false) // Disable individual dot taps
-                            .onHover { hovering in
-                                hoveredDate = hovering ? date : nil
+            // Dots container with fixed height
+            VStack(spacing: spacing) {
+                // Create rows of dots
+                ForEach(0..<maxRows, id: \.self) { row in
+                    HStack(spacing: spacing) {
+                        if row < numberOfRows {
+                            ForEach(0..<dotsPerRow, id: \.self) { col in
+                                let index = row * dotsPerRow + col
+                                if index < dates.count {
+                                    let date = dates[index]
+                                    
+                                    DayDotView(
+                                        date: date,
+                                        hasNote: hasNote(for: date),
+                                        isToday: isToday(date),
+                                        isFuture: date > today,
+                                        accentColor: accentColor,
+                                        isHovered: false,
+                                        dotSize: dotSize,
+                                        tintedBackgrounds: tintedBackgrounds,
+                                        colorScheme: colorScheme,
+                                        skipAnimation: false
+                                    )
+                                    .allowsHitTesting(false)
+                                } else {
+                                    // Empty space for missing days
+                                    Circle()
+                                        .fill(Color.clear)
+                                        .frame(width: dotSize, height: dotSize)
+                                }
                             }
                         } else {
-                            // Empty space for missing days
-                            Circle()
-                                .fill(Color.clear)
-                                .frame(width: dotSize, height: dotSize)
+                            // Empty row to maintain consistent height
+                            Color.clear
+                                .frame(height: dotSize)
                         }
                     }
                 }
             }
+            .frame(maxHeight: .infinity, alignment: .top)
+            
+            // Month label at bottom
+            Text(monthNames[monthIndex])
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(accentColor)
+                .padding(.top, -21)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .background(Color.black.opacity(0.001)) // Invisible background to ensure tap area
-        .scaleEffect(isZooming ? 1.02 : 1.0) // Subtle scale for feedback
-        .opacity(isZooming ? 1.0 : (selectedMonthForZoom != nil ? 0.7 : 1.0)) // Fade non-selected months during zoom
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .contentShape(Rectangle()) // Make entire area tappable
-        .matchedGeometryEffect(id: "month-\(monthIndex)", in: animationNamespace)
+        .matchedGeometryEffect(id: "month-\(monthIndex)", in: animationNamespace, isSource: viewMode == .year)
         .onTapGesture {
             onTap()
         }
@@ -379,8 +460,6 @@ struct DayDotView: View {
                     .frame(width: dotSize + 4, height: dotSize + 4)
             }
         }
-        .scaleEffect(isHovered ? 1.3 : 1.0)
-        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isHovered)
         .onAppear {
             if skipAnimation {
                 animateIn = true
@@ -393,9 +472,22 @@ struct DayDotView: View {
     }
 }
 
-// Helper extension
+// Helper extensions
 extension Date {
     var isFuture: Bool {
         self > Date()
+    }
+}
+
+// Make DateComponents hashable for our Set
+extension DateComponents: Hashable {
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(year)
+        hasher.combine(month)
+        hasher.combine(day)
+    }
+    
+    public static func == (lhs: DateComponents, rhs: DateComponents) -> Bool {
+        return lhs.year == rhs.year && lhs.month == rhs.month && lhs.day == rhs.day
     }
 }

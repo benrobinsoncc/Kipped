@@ -7,6 +7,35 @@
 
 import SwiftUI
 
+struct DragLocationKey: PreferenceKey {
+    static var defaultValue: CGPoint?
+    
+    static func reduce(value: inout CGPoint?, nextValue: () -> CGPoint?) {
+        value = nextValue() ?? value
+    }
+}
+
+// Pass drag handler to child views
+struct DragHandlerKey: EnvironmentKey {
+    static let defaultValue: ((CGPoint) -> Void)? = nil
+}
+
+struct DragEndHandlerKey: EnvironmentKey {
+    static let defaultValue: (() -> Void)? = nil
+}
+
+extension EnvironmentValues {
+    var dragHandler: ((CGPoint) -> Void)? {
+        get { self[DragHandlerKey.self] }
+        set { self[DragHandlerKey.self] = newValue }
+    }
+    
+    var dragEndHandler: (() -> Void)? {
+        get { self[DragEndHandlerKey.self] }
+        set { self[DragEndHandlerKey.self] = newValue }
+    }
+}
+
 struct AppFontModifier: ViewModifier {
     let font: FontOption
     
@@ -53,6 +82,7 @@ struct ContentView: View {
     @State private var zoomScale: CGFloat = 1.0
     @State private var zoomOffset: CGSize = .zero
     @State private var navigatedViaZoom: Bool = false
+    @State private var pinchUnitPoint: UnitPoint = .center
     
     @AppStorage("selectedAppIcon") private var selectedAppIcon: AppIconOption = .default
     @Binding var appTheme: AppTheme
@@ -75,29 +105,6 @@ struct ContentView: View {
     }
     
     // MARK: - Smudge Effect Methods
-    
-    private func handleDragChanged(_ value: DragGesture.Value) {
-        let currentPosition = value.location
-        
-        if !isDragging {
-            isDragging = true
-            createSmudgeParticle(at: currentPosition)
-        } else {
-            if let lastPos = lastDragPosition {
-                let distance = sqrt(pow(currentPosition.x - lastPos.x, 2) + pow(currentPosition.y - lastPos.y, 2))
-                if distance > 3.0 {
-                    createSmudgeParticle(at: currentPosition)
-                }
-            }
-        }
-        
-        lastDragPosition = currentPosition
-    }
-    
-    private func handleDragEnded() {
-        isDragging = false
-        lastDragPosition = nil
-    }
     
     private func createSmudgeParticle(at position: CGPoint) {
         let newParticle = SmudgeParticle(position: position)
@@ -177,11 +184,64 @@ struct ContentView: View {
                                     tintedBackgrounds: tintedBackgrounds,
                                     colorScheme: currentColorScheme,
                                     animationNamespace: animationNamespace,
-                                    containerSize: geometry.size
+                                    containerSize: geometry.size,
+                                    pinchUnitPoint: pinchUnitPoint
                                 )
+                                .environment(\.dragHandler, { location in
+                                    let currentPosition = location
+                                    
+                                    if !isDragging {
+                                        isDragging = true
+                                        createSmudgeParticle(at: currentPosition)
+                                    } else {
+                                        if let lastPos = lastDragPosition {
+                                            let distance = sqrt(pow(currentPosition.x - lastPos.x, 2) + pow(currentPosition.y - lastPos.y, 2))
+                                            if distance > 3.0 {
+                                                createSmudgeParticle(at: currentPosition)
+                                            }
+                                        }
+                                    }
+                                    
+                                    lastDragPosition = currentPosition
+                                })
+                                .environment(\.dragEndHandler, {
+                                    isDragging = false
+                                    lastDragPosition = nil
+                                })
                                 .frame(height: geometry.size.height - 120) // Match MonthView constraint
                                 .scaleEffect(zoomScale, anchor: .center)
                                 .offset(zoomOffset)
+                                .gesture(
+                                    MagnificationGesture()
+                                        .simultaneously(with: DragGesture(minimumDistance: 0))
+                                        .onChanged { value in
+                                            if let scale = value.first {
+                                                zoomScale = scale
+                                            }
+                                            
+                                            if let location = value.second?.location {
+                                                // Convert to unit point (0-1 range)
+                                                let width = geometry.size.width
+                                                let height = geometry.size.height - 120
+                                                pinchUnitPoint = UnitPoint(
+                                                    x: location.x / width,
+                                                    y: location.y / height
+                                                )
+                                            }
+                                        }
+                                        .onEnded { value in
+                                            if let scale = value.first, scale > 1.5 {
+                                                // Let YearView handle month detection since it knows the layout
+                                                navigatedViaZoom = true
+                                            }
+                                            
+                                            // Reset
+                                            withAnimation(.easeInOut(duration: 0.2)) {
+                                                zoomScale = 1.0
+                                                zoomOffset = .zero
+                                            }
+                                        }
+                                )
                             case .month:
                                 MonthView(
                                     viewModel: viewModel,
@@ -195,6 +255,27 @@ struct ContentView: View {
                                     animationNamespace: animationNamespace,
                                     skipAnimation: navigatedViaZoom
                                 )
+                                .environment(\.dragHandler, { location in
+                                    let currentPosition = location
+                                    
+                                    if !isDragging {
+                                        isDragging = true
+                                        createSmudgeParticle(at: currentPosition)
+                                    } else {
+                                        if let lastPos = lastDragPosition {
+                                            let distance = sqrt(pow(currentPosition.x - lastPos.x, 2) + pow(currentPosition.y - lastPos.y, 2))
+                                            if distance > 3.0 {
+                                                createSmudgeParticle(at: currentPosition)
+                                            }
+                                        }
+                                    }
+                                    
+                                    lastDragPosition = currentPosition
+                                })
+                                .environment(\.dragEndHandler, {
+                                    isDragging = false
+                                    lastDragPosition = nil
+                                })
                                 .frame(height: geometry.size.height - 120) // Constrain year/month views
                             case .week:
                                 PositivityListView(
@@ -206,6 +287,27 @@ struct ContentView: View {
                                     tintedBackgrounds: tintedBackgrounds,
                                     colorScheme: currentColorScheme
                                 )
+                                .environment(\.dragHandler, { location in
+                                    let currentPosition = location
+                                    
+                                    if !isDragging {
+                                        isDragging = true
+                                        createSmudgeParticle(at: currentPosition)
+                                    } else {
+                                        if let lastPos = lastDragPosition {
+                                            let distance = sqrt(pow(currentPosition.x - lastPos.x, 2) + pow(currentPosition.y - lastPos.y, 2))
+                                            if distance > 3.0 {
+                                                createSmudgeParticle(at: currentPosition)
+                                            }
+                                        }
+                                    }
+                                    
+                                    lastDragPosition = currentPosition
+                                })
+                                .environment(\.dragEndHandler, {
+                                    isDragging = false
+                                    lastDragPosition = nil
+                                })
                                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                                 .mask(
                                     // Fade mask for bottom 100pts
@@ -296,15 +398,6 @@ struct ContentView: View {
                 .padding(.bottom, 20)
             }
         }
-        .gesture(
-            DragGesture(minimumDistance: 0)
-                .onChanged { value in
-                    handleDragChanged(value)
-                }
-                .onEnded { _ in
-                    handleDragEnded()
-                }
-        )
         .sheet(isPresented: $showingAddNote) {
             AddPositiveNoteView(
                 viewModel: viewModel,
