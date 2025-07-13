@@ -20,7 +20,8 @@
       "Bash(claude config set --global supervisorMode true)",
       "Bash(claude config set:*)",
       "Bash(claude config add:*)",
-      "Bash(claude --version)"
+      "Bash(claude --version)",
+      "Bash(git add:*)"
     ],
     "deny": []
   }

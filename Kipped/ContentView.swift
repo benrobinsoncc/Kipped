@@ -83,6 +83,8 @@ struct ContentView: View {
     @State private var zoomOffset: CGSize = .zero
     @State private var navigatedViaZoom: Bool = false
     @State private var pinchUnitPoint: UnitPoint = .center
+    @State private var settingsPressed = false
+    @State private var viewSwitcherPressed = false
     
     @AppStorage("selectedAppIcon") private var selectedAppIcon: AppIconOption = .default
     @Binding var appTheme: AppTheme
@@ -337,12 +339,15 @@ struct ContentView: View {
                                 .frame(width: 22, height: 22)
                                 .foregroundColor(accentColor)
                                 .materialStyle(accentColor: accentColor)
-                                .highPriorityGesture(
-                                    TapGesture()
-                                        .onEnded {
-                                            showingSettings = true
-                                        }
-                                )
+                                .scaleEffect(settingsPressed ? 0.92 : 1.0)
+                                .onTapGesture {
+                                    showingSettings = true
+                                }
+                                .onLongPressGesture(minimumDuration: 0, maximumDistance: .infinity, pressing: { pressing in
+                                    withAnimation(.easeInOut(duration: 0.12)) {
+                                        settingsPressed = pressing
+                                    }
+                                }, perform: {})
                         }
                     }
                 }
@@ -357,6 +362,7 @@ struct ContentView: View {
                     SkeuomorphicCreateButton(
                         accentColor: accentColor,
                         action: {
+                            selectedNote = nil  // Clear any selected note
                             selectedDate = Date()
                             showingAddNote = true
                         }
@@ -390,7 +396,14 @@ struct ContentView: View {
                             .padding(.vertical, 8)
                             .background(Color.tintedSecondaryBackground(accentColor: accentColor, isEnabled: tintedBackgrounds, colorScheme: currentColorScheme))
                             .cornerRadius(20)
+                            .scaleEffect(viewSwitcherPressed ? 0.92 : 1.0)
                         }
+                        .buttonStyle(PlainButtonStyle())
+                        .onLongPressGesture(minimumDuration: 0, maximumDistance: .infinity, pressing: { pressing in
+                            withAnimation(.easeInOut(duration: 0.12)) {
+                                viewSwitcherPressed = pressing
+                            }
+                        }, perform: {})
                         
                         Spacer()
                     }
@@ -421,7 +434,8 @@ struct ContentView: View {
                 colorScheme: currentColorScheme,
                 selectedAppIcon: $selectedAppIcon,
                 selectedFont: $selectedFont,
-                tintedBackgrounds: $tintedBackgrounds
+                tintedBackgrounds: $tintedBackgrounds,
+                viewModel: viewModel
             )
         }
         .onChange(of: selectedDate) { oldValue, newValue in

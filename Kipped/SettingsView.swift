@@ -79,12 +79,16 @@ struct SettingsView: View {
     @Binding var selectedAppIcon: AppIconOption
     @Binding var selectedFont: FontOption
     @Binding var tintedBackgrounds: Bool
+    @ObservedObject var viewModel: PositiveNoteViewModel
     @State private var showingThemeSheet = false
     @State private var showingAccentSheet = false
     @State private var showingAppIconSheet = false
     @State private var showingFontSheet = false
     @State private var notificationTime = NotificationManager.shared.loadNotificationTime()
     @State private var showingTimePicker = false
+    @State private var showingShareSheet = false
+    @State private var shareImage: UIImage?
+    @State private var isGeneratingImage = false
     
     let accentColors: [(Color, String)] = MaterialColorCategory.allCategories.first?.colors.map { ($0.color, $0.name) } ?? []
     
@@ -135,7 +139,7 @@ struct SettingsView: View {
                             HStack {
                                 Image(systemName: "paintpalette")
                                     .foregroundColor(colorScheme == .dark ? .white : .black)
-                                Text("Accent Color")
+                                Text("Accent colour")
                                     .appFont(selectedFont)
                                     .foregroundColor(.primary)
                                 Spacer()
@@ -153,7 +157,7 @@ struct SettingsView: View {
                             HStack {
                                 Image(systemName: "app.badge")
                                     .foregroundColor(colorScheme == .dark ? .white : .black)
-                                Text("App Icon")
+                                Text("App icon")
                                     .appFont(selectedFont)
                                     .foregroundColor(.primary)
                                 Spacer()
@@ -185,6 +189,8 @@ struct SettingsView: View {
                     
                     Section("Configure") {
                         HStack {
+                            Image(systemName: "hand.tap")
+                                .foregroundColor(colorScheme == .dark ? .white : .black)
                             Text("Haptics")
                                 .appFont(selectedFont)
                                 .foregroundColor(.primary)
@@ -194,6 +200,8 @@ struct SettingsView: View {
                         .listRowBackground(tintedSecondaryBackground)
                         
                         HStack {
+                            Image(systemName: "bell")
+                                .foregroundColor(colorScheme == .dark ? .white : .black)
                             Text("Notifications")
                                 .appFont(selectedFont)
                                 .foregroundColor(.primary)
@@ -208,6 +216,8 @@ struct SettingsView: View {
                                 showingTimePicker = true
                             }) {
                                 HStack {
+                                    Image(systemName: "clock")
+                                        .foregroundColor(colorScheme == .dark ? .white : .black)
                                     Text("Daily prompt time")
                                         .appFont(selectedFont)
                                         .foregroundColor(.primary)
@@ -222,6 +232,34 @@ struct SettingsView: View {
                             }
                             .listRowBackground(tintedSecondaryBackground)
                         }
+                    }
+                    
+                    Section("Share") {
+                        Button(action: {
+                            shareYearView()
+                        }) {
+                            HStack {
+                                if isGeneratingImage {
+                                    ProgressView()
+                                        .progressViewStyle(CircularProgressViewStyle())
+                                        .scaleEffect(0.7)
+                                } else {
+                                    Image(systemName: "square.and.arrow.up")
+                                        .foregroundColor(colorScheme == .dark ? .white : .black)
+                                }
+                                Text("Share year progress")
+                                    .appFont(selectedFont)
+                                    .foregroundColor(.primary)
+                                Spacer()
+                                if !isGeneratingImage {
+                                    Image(systemName: "chevron.right")
+                                        .foregroundColor(.secondary)
+                                        .font(.caption)
+                                }
+                            }
+                        }
+                        .disabled(isGeneratingImage)
+                        .listRowBackground(tintedSecondaryBackground)
                     }
                     
                 }
@@ -298,7 +336,35 @@ struct SettingsView: View {
             )
             .presentationDetents([.fraction(0.3)])
         }
+        .sheet(isPresented: $showingShareSheet) {
+            if let image = shareImage {
+                ActivityViewController(activityItems: [image])
+            }
+        }
         .preferredColorScheme(colorScheme)
+    }
+    
+    @MainActor
+    private func shareYearView() {
+        isGeneratingImage = true
+        
+        Task { @MainActor in
+            shareImage = YearViewExporter.exportYearView(
+                viewModel: viewModel,
+                accentColor: accentColor,
+                selectedFont: selectedFont,
+                tintedBackgrounds: tintedBackgrounds,
+                colorScheme: colorScheme
+            )
+            
+            isGeneratingImage = false
+            
+            if shareImage != nil {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    showingShareSheet = true
+                }
+            }
+        }
     }
     
     private func handleNotificationsToggle(_ enabled: Bool) {
