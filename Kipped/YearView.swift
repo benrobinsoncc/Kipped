@@ -61,7 +61,7 @@ struct YearView: View {
         let availableWidth = containerSize.width - 32 - 40
         let monthWidth = availableWidth / 3
         let monthHeight: CGFloat = 140
-        let verticalSpacing: CGFloat = 24
+        let verticalSpacing: CGFloat = 18
         
         // Adjust for padding
         let adjustedX = location.x - 16
@@ -109,7 +109,7 @@ struct YearView: View {
     var body: some View {
         GeometryReader { geometry in
             VStack {
-                VStack(alignment: .leading, spacing: 24) {
+                VStack(alignment: .leading, spacing: 18) {
                     // Row 1 - Jan, Feb, Mar
                     HStack(alignment: .top, spacing: 20) {
                         ForEach(0..<3) { col in
@@ -243,6 +243,7 @@ struct YearView: View {
                     }
                 }
                 .padding(.horizontal, 16)
+                .padding(.top, -10)
                 
                 Spacer()
             }
@@ -468,17 +469,20 @@ struct DayDotView: View {
     
     var body: some View {
         ZStack {
-            Circle()
-                .fill(dotColor)
-                .frame(width: dotSize, height: dotSize)
-                .scaleEffect(animateIn ? 1 : 0.3)
-                .opacity(animateIn ? 1 : 0)
-            
             if hasNote {
+                // Just show the icon in accent color, no background
                 Image(systemName: celebratoryIcon(for: date))
                     .font(.system(size: max(dotSize * 0.5, 8), weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(accentColor)
                     .scaleEffect(animateIn ? 1 : 0)
+                    .opacity(animateIn ? 1 : 0)
+            } else {
+                // Keep the circle for non-completed days
+                Circle()
+                    .fill(dotColor)
+                    .frame(width: dotSize, height: dotSize)
+                    .scaleEffect(animateIn ? 1 : 0.3)
+                    .opacity(animateIn ? 1 : 0)
             }
             
             if isToday {
