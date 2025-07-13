@@ -76,6 +76,7 @@ struct KippedApp: App {
     @State private var selectedFont: FontOption = KippedApp.loadFont()
     @State private var tintedBackgrounds: Bool = KippedApp.loadTintedBackgrounds()
     @State private var showAddEntry = false
+    @State private var showPositivityToast = false
 
     private var colorScheme: ColorScheme? {
         switch appTheme {
@@ -101,10 +102,21 @@ struct KippedApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView(appTheme: $appTheme, accentColor: $accentColor, notificationsEnabled: $notificationsEnabled, hapticsEnabled: $hapticsEnabled, selectedFont: $selectedFont, tintedBackgrounds: $tintedBackgrounds, showAddEntry: $showAddEntry)
-                .preferredColorScheme(colorScheme)
-                .accentColor(accentColor)
-                .onChange(of: appTheme) { newTheme in
+            ZStack {
+                ContentView(appTheme: $appTheme, accentColor: $accentColor, notificationsEnabled: $notificationsEnabled, hapticsEnabled: $hapticsEnabled, selectedFont: $selectedFont, tintedBackgrounds: $tintedBackgrounds, showAddEntry: $showAddEntry)
+                    .preferredColorScheme(colorScheme)
+                    .accentColor(accentColor)
+                
+                if showPositivityToast {
+                    VStack {
+                        ToastView(isShowing: $showPositivityToast, message: "Positivity On", icon: "checkmark.circle.fill", accentColor: accentColor, tintedBackgrounds: tintedBackgrounds)
+                            .padding(.top, 10)
+                        Spacer()
+                    }
+                    .allowsHitTesting(false)
+                }
+            }
+            .onChange(of: appTheme) { newTheme in
                     KippedApp.saveTheme(newTheme)
                 }
                 .onChange(of: accentColor) { newColor in
@@ -125,6 +137,11 @@ struct KippedApp: App {
                 .onOpenURL { url in
                     if url.absoluteString == "kipped://add-entry" {
                         showAddEntry = true
+                    }
+                }
+                .onAppear {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        showPositivityToast = true
                     }
                 }
         }
