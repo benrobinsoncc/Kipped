@@ -85,6 +85,7 @@ struct ContentView: View {
     @State private var pinchUnitPoint: UnitPoint = .center
     @State private var settingsPressed = false
     @State private var viewSwitcherPressed = false
+    @State private var showingMemories = false
     
     @AppStorage("selectedAppIcon") private var selectedAppIcon: AppIconOption = .default
     @Binding var appTheme: AppTheme
@@ -368,7 +369,7 @@ struct ContentView: View {
                         }
                     )
                     
-                    // View switcher (left aligned)
+                    // View switcher (left aligned) and Memories button (right aligned)
                     HStack {
                         Button(action: {
                             // Reset zoom when changing views
@@ -406,6 +407,21 @@ struct ContentView: View {
                         }, perform: {})
                         
                         Spacer()
+                        
+                        // Memories button (right aligned)
+                        Button(action: {
+                            showingMemories = true
+                            HapticsManager.shared.impact(.soft)
+                        }) {
+                            Image(systemName: "photo.on.rectangle.angled")
+                                .font(.system(size: 20, weight: .medium))
+                                .foregroundColor(accentColor)
+                                .frame(width: 44, height: 44)
+                                .background(Color.tintedSecondaryBackground(accentColor: accentColor, isEnabled: tintedBackgrounds, colorScheme: currentColorScheme))
+                                .cornerRadius(22)
+                                .shadow(color: Color.black.opacity(0.05), radius: 2, x: 0, y: 1)
+                        }
+                        .buttonStyle(PlainButtonStyle())
                     }
                 }
                 .padding(.horizontal, 20)
@@ -436,6 +452,14 @@ struct ContentView: View {
                 selectedFont: $selectedFont,
                 tintedBackgrounds: $tintedBackgrounds,
                 viewModel: viewModel
+            )
+        }
+        .sheet(isPresented: $showingMemories) {
+            MemoriesView(
+                viewModel: viewModel,
+                accentColor: $accentColor,
+                selectedFont: $selectedFont,
+                tintedBackgrounds: $tintedBackgrounds
             )
         }
         .onChange(of: selectedDate) { oldValue, newValue in

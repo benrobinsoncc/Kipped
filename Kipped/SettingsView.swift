@@ -80,6 +80,7 @@ struct SettingsView: View {
     @Binding var selectedFont: FontOption
     @Binding var tintedBackgrounds: Bool
     @ObservedObject var viewModel: PositiveNoteViewModel
+    @Environment(\.presentationMode) var presentationMode
     @State private var showingThemeSheet = false
     @State private var showingAccentSheet = false
     @State private var showingAppIconSheet = false
@@ -266,6 +267,23 @@ struct SettingsView: View {
                 .scrollContentBackground(.hidden)
                 .navigationTitle("Settings")
                 .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button(action: {
+                            presentationMode.wrappedValue.dismiss()
+                        }) {
+                            ZStack {
+                                Circle()
+                                    .fill(Color.secondary.opacity(0.15))
+                                    .frame(width: 28, height: 28)
+                                
+                                Image(systemName: "xmark")
+                                    .foregroundColor(.secondary.opacity(0.7))
+                                    .font(.system(size: 11, weight: .bold))
+                            }
+                        }
+                    }
+                }
             }
             
             

@@ -21,7 +21,9 @@
       "Bash(claude config set:*)",
       "Bash(claude config add:*)",
       "Bash(claude --version)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git push:*)",
+      "Bash(open:*)"
     ],
     "deny": []
   }

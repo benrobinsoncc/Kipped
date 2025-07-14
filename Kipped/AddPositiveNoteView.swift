@@ -204,6 +204,22 @@ struct AddPositiveNoteView: View {
                         .foregroundColor(.primary)
                     }
                 }
+                
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(action: {
+                        dismiss()
+                    }) {
+                        ZStack {
+                            Circle()
+                                .fill(Color.secondary.opacity(0.15))
+                                .frame(width: 28, height: 28)
+                            
+                            Image(systemName: "xmark")
+                                .foregroundColor(.secondary.opacity(0.7))
+                                .font(.system(size: 11, weight: .bold))
+                        }
+                    }
+                }
             }
         }
         .sheet(isPresented: $showingDatePicker) {
