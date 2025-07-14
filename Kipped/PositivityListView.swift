@@ -30,9 +30,11 @@ struct PositivityListView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 0) {
-                        // All notes in one continuous timeline
-                        let allNotes = viewModel.notes.sorted(by: { $0.date > $1.date })
+                    VStack(alignment: .leading, spacing: 24) {
+                        // All notes in one continuous timeline, filtering out empty ones
+                        let allNotes = viewModel.notes
+                            .filter { !$0.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+                            .sorted(by: { $0.date > $1.date })
                         ForEach(Array(allNotes.enumerated()), id: \.element.id) { index, note in
                             PositiveNoteCard(
                                 note: note,
@@ -96,6 +98,19 @@ struct PositiveNoteCard: View {
     @State private var isPressed = false
     @State private var shimmerOffset: CGFloat = -100
     
+    // Computed property to clean up note content for display
+    private var displayContent: String {
+        // Split by newlines and filter out empty lines
+        let lines = note.content
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+        
+        // Join non-empty lines with single newlines
+        return lines.joined(separator: "\n")
+    }
+    
     private let celebratoryIcons = [
         "star.fill",
         "heart.fill",
@@ -137,21 +152,21 @@ struct PositiveNoteCard: View {
     var body: some View {
         HStack(alignment: .top, spacing: 16) {
             // Timeline indicator
-            VStack(spacing: 0) {
+            ZStack(alignment: .top) {
+                // Connecting line (behind icon)
+                if showConnectingLine {
+                    Rectangle()
+                        .fill(accentColor.opacity(0.2))
+                        .frame(width: 1)
+                        .offset(y: 16)
+                }
+                
                 // Icon indicator
                 Image(systemName: celebratoryIcon(for: note.date))
                     .font(.system(size: 12))
                     .foregroundColor(accentColor)
                     .frame(width: 16, height: 16)
-                    .padding(.top, 1)
-                
-                // Connecting line
-                if showConnectingLine {
-                    Rectangle()
-                        .fill(accentColor.opacity(0.2))
-                        .frame(width: 1)
-                        .padding(.top, 2)
-                }
+                    .background(Color(UIColor.systemBackground))
             }
             .frame(width: 16)
             
@@ -161,8 +176,9 @@ struct PositiveNoteCard: View {
                     Text(dateString)
                         .font(.system(size: 14))
                         .foregroundColor(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                     
-                    Text(note.content)
+                    Text(displayContent)
                         .appFont(selectedFont)
                         .font(.body)
                         .foregroundColor(.primary)
@@ -170,9 +186,9 @@ struct PositiveNoteCard: View {
                         .lineLimit(3)
                         .truncationMode(.tail)
                         .frame(maxWidth: .infinity, alignment: .leading)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-                .frame(maxWidth: .infinity, minHeight: 70, alignment: .topLeading)
-                .padding(.bottom, 8)
+                .frame(maxWidth: .infinity, alignment: .topLeading)
             }
             .buttonStyle(PlainButtonStyle())
             .scaleEffect(isPressed ? 0.98 : 1.0)

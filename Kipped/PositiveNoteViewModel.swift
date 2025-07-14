@@ -22,6 +22,7 @@ class PositiveNoteViewModel: ObservableObject {
     
     init() {
         loadNotes()
+        cleanupEmptyNotes()
         setupOnboardingDate()
         setupDailyNotification()
     }
@@ -159,6 +160,15 @@ class PositiveNoteViewModel: ObservableObject {
     }
     
     // MARK: - Persistence
+    
+    private func cleanupEmptyNotes() {
+        let originalCount = notes.count
+        notes = notes.filter { !$0.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        if notes.count < originalCount {
+            print("Cleaned up \(originalCount - notes.count) empty notes")
+            saveNotes()
+        }
+    }
     
     private func saveNotes() {
         do {
