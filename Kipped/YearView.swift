@@ -61,7 +61,7 @@ struct YearView: View {
         let availableWidth = containerSize.width - 32 - 40
         let monthWidth = availableWidth / 3
         let monthHeight: CGFloat = 140
-        let verticalSpacing: CGFloat = 18
+        let verticalSpacing: CGFloat = 20
         
         // Adjust for padding
         let adjustedX = location.x - 16
@@ -109,7 +109,7 @@ struct YearView: View {
     var body: some View {
         GeometryReader { geometry in
             VStack {
-                VStack(alignment: .leading, spacing: 18) {
+                VStack(alignment: .leading, spacing: 20) {
                     // Row 1 - Jan, Feb, Mar
                     HStack(alignment: .top, spacing: 20) {
                         ForEach(0..<3) { col in
@@ -345,7 +345,7 @@ struct MonthDotGrid: View {
     var body: some View {
         VStack(spacing: spacing) {
             // Dots container with fixed height
-            VStack(spacing: spacing) {
+            VStack(spacing: max(spacing - 2, 0)) {
                 // Create rows of dots
                 ForEach(0..<maxRows, id: \.self) { row in
                     HStack(spacing: spacing) {
@@ -363,9 +363,9 @@ struct MonthDotGrid: View {
                                         accentColor: accentColor,
                                         isHovered: false,
                                         dotSize: dotSize,
-                                        tintedBackgrounds: tintedBackgrounds,
+                                        tintedBackgrounds: false,
                                         colorScheme: colorScheme,
-                                        skipAnimation: false
+                                        skipAnimation: true
                                     )
                                     .allowsHitTesting(false)
                                 } else {
@@ -383,17 +383,16 @@ struct MonthDotGrid: View {
                     }
                 }
             }
-            .frame(maxHeight: .infinity, alignment: .top)
             
             // Month label at bottom
             Text(monthNames[monthIndex])
                 .font(.system(size: 11, weight: .medium))
                 .foregroundColor(accentColor)
-                .padding(.top, -21)
+                .padding(.top, -20)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .frame(maxWidth: .infinity, alignment: .top)
         .contentShape(Rectangle()) // Make entire area tappable
-        .matchedGeometryEffect(id: "month-\(monthIndex)", in: animationNamespace, isSource: viewMode == .year)
+        // Removed matchedGeometryEffect to reduce transition/compositing overhead when presenting YearView
         .onTapGesture {
             onTap()
         }
