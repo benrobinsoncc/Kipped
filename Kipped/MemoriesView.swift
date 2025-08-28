@@ -183,6 +183,8 @@ struct MemoryCard: View {
     
     @State private var isFlipped = false
     @State private var rotation: Double = 0
+    @State private var memorySummary: OpenAIService.MemorySummary?
+    @State private var isLoadingSummary = false
     
     private var dateFormatter: DateFormatter {
         let formatter = DateFormatter()
@@ -209,7 +211,14 @@ struct MemoryCard: View {
     }
     
     private var cardGradient: LinearGradient {
-        let baseColor = notes.isEmpty ? Color.gray : accentColor
+        var baseColor = notes.isEmpty ? Color.gray : accentColor
+        
+        // Use AI-suggested color if available
+        if let colorHex = memorySummary?.colorSuggestion,
+           let color = Color(hex: colorHex) {
+            baseColor = color
+        }
+        
         return LinearGradient(
             gradient: Gradient(colors: [
                 baseColor.opacity(0.1),
@@ -255,6 +264,47 @@ struct MemoryCard: View {
                 isFlipped.toggle()
             }
             HapticsManager.shared.impact(.soft)
+        }
+        .onAppear {
+            loadAISummary()
+        }
+    }
+    
+    private func loadAISummary() {
+        // Check if AI summaries are enabled
+        let enableAI = UserDefaults.standard.bool(forKey: "enableAISummaries")
+        guard enableAI, !notes.isEmpty && memorySummary == nil && !isLoadingSummary else { return }
+        
+        isLoadingSummary = true
+        Task {
+            do {
+                let provider = UserDefaults.standard.string(forKey: "aiProvider") ?? "openai"
+                let summary: OpenAIService.MemorySummary
+                if provider == "anthropic" {
+                    summary = try await ClaudeService.shared.generateMemorySummary(
+                        for: notes,
+                        period: period,
+                        date: date
+                    )
+                } else {
+                    summary = try await OpenAIService.shared.generateMemorySummary(
+                        for: notes,
+                        period: period,
+                        date: date
+                    )
+                }
+                await MainActor.run {
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        self.memorySummary = summary
+                        self.isLoadingSummary = false
+                    }
+                }
+            } catch {
+                print("Failed to generate AI summary: \(error)")
+                await MainActor.run {
+                    self.isLoadingSummary = false
+                }
+            }
         }
     }
     
@@ -351,24 +401,68 @@ struct MemoryCard: View {
                 .padding()
             } else {
                 VStack(alignment: .leading, spacing: 8) {
-                    // Summary title (placeholder for AI summary)
-                    Text(generateTitle())
-                        .appFont(selectedFont)
-                        .font(.headline)
-                        .foregroundColor(.primary)
-                        .lineLimit(2)
-                    
-                    // Preview of moments
-                    VStack(alignment: .leading, spacing: 4) {
-                        ForEach(notes.prefix(2)) { note in
-                            HStack(alignment: .top, spacing: 4) {
-                                Text("•")
-                                    .foregroundColor(accentColor)
-                                Text(note.content)
-                                    .appFont(selectedFont)
-                                    .font(.caption)
-                                    .lineLimit(2)
-                                    .foregroundColor(.primary.opacity(0.8))
+                    // AI Summary or loading state
+                    if isLoadingSummary {
+                        HStack {
+                            ProgressView()
+                                .scaleEffect(0.8)
+                            Text("Creating memory...")
+                                .appFont(selectedFont)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        .padding(.vertical, 4)
+                    } else if let summary = memorySummary {
+                        // AI-generated title
+                        Text(summary.title)
+                            .appFont(selectedFont)
+                            .font(.headline)
+                            .foregroundColor(.primary)
+                            .lineLimit(2)
+                        
+                        // AI-generated summary
+                        Text(summary.summary)
+                            .appFont(selectedFont)
+                            .font(.caption)
+                            .foregroundColor(.primary.opacity(0.8))
+                            .lineLimit(3)
+                            .padding(.vertical, 2)
+                        
+                        // Themes
+                        if !summary.themes.isEmpty {
+                            HStack(spacing: 6) {
+                                ForEach(summary.themes, id: \.self) { theme in
+                                    Text(theme)
+                                        .appFont(selectedFont)
+                                        .font(.system(size: 10))
+                                        .foregroundColor(accentColor)
+                                        .padding(.horizontal, 8)
+                                        .padding(.vertical, 3)
+                                        .background(accentColor.opacity(0.1))
+                                        .cornerRadius(12)
+                                }
+                            }
+                        }
+                    } else {
+                        // Fallback to simple display
+                        Text(generateTitle())
+                            .appFont(selectedFont)
+                            .font(.headline)
+                            .foregroundColor(.primary)
+                            .lineLimit(2)
+                        
+                        // Preview of moments
+                        VStack(alignment: .leading, spacing: 4) {
+                            ForEach(notes.prefix(2)) { note in
+                                HStack(alignment: .top, spacing: 4) {
+                                    Text("•")
+                                        .foregroundColor(accentColor)
+                                    Text(note.content)
+                                        .appFont(selectedFont)
+                                        .font(.caption)
+                                        .lineLimit(2)
+                                        .foregroundColor(.primary.opacity(0.8))
+                                }
                             }
                         }
                     }

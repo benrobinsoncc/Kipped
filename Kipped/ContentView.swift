@@ -213,39 +213,6 @@ struct ContentView: View {
                                     lastDragPosition = nil
                                 })
                                 .frame(height: geometry.size.height - 120) // Match MonthView constraint
-                                .scaleEffect(zoomScale, anchor: .center)
-                                .offset(zoomOffset)
-                                .gesture(
-                                    MagnificationGesture()
-                                        .simultaneously(with: DragGesture(minimumDistance: 0))
-                                        .onChanged { value in
-                                            if let scale = value.first {
-                                                zoomScale = scale
-                                            }
-                                            
-                                            if let location = value.second?.location {
-                                                // Convert to unit point (0-1 range)
-                                                let width = geometry.size.width
-                                                let height = geometry.size.height - 120
-                                                pinchUnitPoint = UnitPoint(
-                                                    x: location.x / width,
-                                                    y: location.y / height
-                                                )
-                                            }
-                                        }
-                                        .onEnded { value in
-                                            if let scale = value.first, scale > 1.5 {
-                                                // Let YearView handle month detection since it knows the layout
-                                                navigatedViaZoom = true
-                                            }
-                                            
-                                            // Reset
-                                            withAnimation(.easeInOut(duration: 0.2)) {
-                                                zoomScale = 1.0
-                                                zoomOffset = .zero
-                                            }
-                                        }
-                                )
                             case .month:
                                 MonthView(
                                     viewModel: viewModel,

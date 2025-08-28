@@ -90,6 +90,12 @@ struct SettingsView: View {
     @State private var showingShareSheet = false
     @State private var shareImage: UIImage?
     @State private var isGeneratingImage = false
+    @AppStorage("enableAISummaries") private var enableAISummaries = false
+    @AppStorage("openAIAPIKey") private var openAIAPIKey = ""
+    @AppStorage("anthropicAPIKey") private var anthropicAPIKey = ""
+    @AppStorage("aiProvider") private var aiProvider: String = "openai" // openai | anthropic
+    @State private var showingAPIKeyInput = false
+    @State private var iconChangeError: String?
     
     let accentColors: [(Color, String)] = MaterialColorCategory.allCategories.first?.colors.map { ($0.color, $0.name) } ?? []
     
@@ -235,6 +241,50 @@ struct SettingsView: View {
                         }
                     }
                     
+                    Section("AI Features") {
+                        HStack {
+                            Image(systemName: "sparkles")
+                                .foregroundColor(colorScheme == .dark ? .white : .black)
+                            Text("AI Memory Summaries")
+                                .appFont(selectedFont)
+                                .foregroundColor(.primary)
+                            Spacer()
+                            SkeuomorphicToggle(isOn: $enableAISummaries, accentColor: accentColor)
+                        }
+                        .listRowBackground(tintedSecondaryBackground)
+                        
+                        if enableAISummaries {
+                            // Provider selection
+                            Picker("Provider", selection: $aiProvider) {
+                                Text("OpenAI").tag("openai")
+                                Text("Anthropic").tag("anthropic")
+                            }
+                            .pickerStyle(SegmentedPickerStyle())
+                            .appFont(selectedFont)
+                            .listRowBackground(tintedSecondaryBackground)
+                            
+                            Button(action: {
+                                showingAPIKeyInput = true
+                            }) {
+                                HStack {
+                                    Image(systemName: "key")
+                                        .foregroundColor(colorScheme == .dark ? .white : .black)
+                                    Text(aiProvider == "openai" ? "OpenAI API Key" : "Anthropic API Key")
+                                        .appFont(selectedFont)
+                                        .foregroundColor(.primary)
+                                    Spacer()
+                                    Text((aiProvider == "openai" ? openAIAPIKey : anthropicAPIKey).isEmpty ? "Not Set" : "••••••••")
+                                        .appFont(selectedFont)
+                                        .foregroundColor(.secondary)
+                                    Image(systemName: "chevron.right")
+                                        .foregroundColor(.secondary)
+                                        .font(.caption)
+                                }
+                            }
+                            .listRowBackground(tintedSecondaryBackground)
+                        }
+                    }
+                    
                     Section("Share") {
                         Button(action: {
                             shareYearView()
@@ -319,12 +369,13 @@ struct SettingsView: View {
                 selectedAppIcon: $selectedAppIcon,
                 onIconSelected: { icon in
                     selectedAppIcon = icon
+                    applyAppIcon(option: icon)
                 },
                 accentColor: accentColor,
                 tintedBackgrounds: tintedBackgrounds,
                 currentColorScheme: colorScheme
             )
-            .presentationDetents([.fraction(0.50)])
+            .presentationDetents([.fraction(0.60)])
             .presentationDragIndicator(.hidden)
         }
         .sheet(isPresented: $showingFontSheet) {
@@ -359,7 +410,42 @@ struct SettingsView: View {
                 ActivityViewController(activityItems: [image])
             }
         }
+        .sheet(isPresented: $showingAPIKeyInput) {
+            if aiProvider == "openai" {
+                APIKeyInputView(
+                    apiKey: $openAIAPIKey,
+                    accentColor: accentColor,
+                    selectedFont: selectedFont,
+                    titleText: "OpenAI API Key",
+                    helperText: "Enter your OpenAI API key to enable AI-powered memory summaries. Your key is stored locally and never shared.",
+                    docLinkTitle: "Get an API key from OpenAI",
+                    docLinkURL: "https://platform.openai.com/api-keys",
+                    placeholder: "sk-...",
+                    storageKey: "openAIAPIKey"
+                )
+            } else {
+                APIKeyInputView(
+                    apiKey: $anthropicAPIKey,
+                    accentColor: accentColor,
+                    selectedFont: selectedFont,
+                    titleText: "Anthropic API Key",
+                    helperText: "Enter your Anthropic API key to enable AI-powered memory summaries. Your key is stored locally and never shared.",
+                    docLinkTitle: "Get an API key from Anthropic",
+                    docLinkURL: "https://console.anthropic.com/",
+                    placeholder: "sk-ant-...",
+                    storageKey: "anthropicAPIKey"
+                )
+            }
+        }
         .preferredColorScheme(colorScheme)
+        .onAppear {
+            syncSelectedIconWithSystem()
+        }
+        .alert("App Icon Error", isPresented: Binding(get: { iconChangeError != nil }, set: { newVal in if !newVal { iconChangeError = nil } })) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(iconChangeError ?? "")
+        }
     }
     
     @MainActor
@@ -400,6 +486,73 @@ struct SettingsView: View {
         } else {
             // When turning off, cancel notifications
             NotificationManager.shared.cancelDailyNotification()
+        }
+    }
+
+    // MARK: - App Icon Handling
+    private func applyAppIcon(option: AppIconOption) {
+        guard UIApplication.shared.supportsAlternateIcons else { return }
+        // Default icon uses nil
+        if option == .default {
+            UIApplication.shared.setAlternateIconName(nil) { error in
+                if let error = error {
+                    iconChangeError = error.localizedDescription
+                }
+            }
+            return
+        }
+
+        // Try several plausible alternate icon keys in case Info.plist naming differs
+        let candidates: [String] = {
+            let raw = option.rawValue
+            let noSpaces = raw.replacingOccurrences(of: " ", with: "")
+            let withoutPrefix = raw.replacingOccurrences(of: "AppIcon ", with: "")
+            let compactWithoutPrefix = noSpaces.replacingOccurrences(of: "AppIcon", with: "")
+            return [raw, noSpaces, withoutPrefix, compactWithoutPrefix].removingDuplicatesPreservingOrder()
+        }()
+
+        trySetAlternateIcon(using: candidates)
+    }
+
+    private func syncSelectedIconWithSystem() {
+        guard UIApplication.shared.supportsAlternateIcons else { return }
+        if let current = UIApplication.shared.alternateIconName {
+            if let opt = AppIconOption(rawValue: current) {
+                selectedAppIcon = opt
+            }
+        } else {
+            selectedAppIcon = .default
+        }
+    }
+}
+
+private extension Array where Element: Hashable {
+    func removingDuplicatesPreservingOrder() -> [Element] {
+        var seen = Set<Element>()
+        var result: [Element] = []
+        for item in self {
+            if !seen.contains(item) {
+                seen.insert(item)
+                result.append(item)
+            }
+        }
+        return result
+    }
+}
+
+private extension SettingsView {
+    func trySetAlternateIcon(using candidates: [String]) {
+        guard let first = candidates.first else { return }
+        UIApplication.shared.setAlternateIconName(first) { error in
+            if let error = error {
+                // Try next candidate
+                let remaining = Array(candidates.dropFirst())
+                if remaining.isEmpty {
+                    iconChangeError = "Failed to change app icon. Ensure alternate icons are configured in Info and names match (e.g., AppIcon 1, AppIcon1).\n\nError: \(error.localizedDescription)"
+                } else {
+                    trySetAlternateIcon(using: remaining)
+                }
+            }
         }
     }
 }

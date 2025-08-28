@@ -1,0 +1,5 @@
+ • When fixing bugs, validate each fix before moving to the next. If a fix fails, revert and reassess.
+ • For new features, provide a summary of how the change fits into the existing codebase.
+ • Document any new functions, classes, or modules with clear comments.
+ • If you encounter duplicate or redundant code, list it and suggest simple refactoring.
+ • Do not make global changes unless explicitly requested.

@@ -285,6 +285,20 @@ struct AddPositiveNoteView: View {
                 .navigationTitle("Select date")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
+                    ToolbarItem(placement: .navigationBarLeading) {
+                        Button(action: {
+                            showingDatePicker = false
+                        }) {
+                            ZStack {
+                                Circle()
+                                    .fill(Color.secondary.opacity(0.15))
+                                    .frame(width: 28, height: 28)
+                                Image(systemName: "xmark")
+                                    .foregroundColor(.secondary.opacity(0.7))
+                                    .font(.system(size: 11, weight: .bold))
+                            }
+                        }
+                    }
                     ToolbarItem(placement: .navigationBarTrailing) {
                         Button("Done") {
                             selectedDate = tempSelectedDate
